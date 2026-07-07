@@ -175,8 +175,18 @@ def run_serial(port: str, show_raw: bool, real_printer: str = None):
     except ImportError:
         sys.exit("pyserial not installed. Run:  pip install pyserial")
 
-    ser = serial.Serial(port, 115200, timeout=0.2)
-    print(f"🖨  Fake printer listening on {port}. Print from the app to test. Ctrl+C to stop.\n")
+    print(f"🖨  Fake printer listening on {port}. Waiting for Bluetooth connection...")
+    print("→ Please connect/print from your mobile app now. Ctrl+C to stop.\n")
+
+    ser = None
+    while ser is None:
+        try:
+            ser = serial.Serial(port, 115200, timeout=0.2)
+        except Exception:
+            time.sleep(1)
+            continue
+
+    print(f"✅ Connected to {port}! Reading print data...\n")
 
     buf = bytearray()
     last = None
@@ -193,7 +203,8 @@ def run_serial(port: str, show_raw: bool, real_printer: str = None):
     except KeyboardInterrupt:
         print("\nStopped.")
     finally:
-        ser.close()
+        if ser:
+            ser.close()
 
 
 def local_ips():
