@@ -267,11 +267,12 @@ fun RecentOrdersScreen(
                         }
                     }
 
+                    val currentResult = result
                     when {
-                        result == null ->
+                        currentResult == null ->
                             Box(Modifier.fillMaxSize(), Alignment.Center) { CircularProgressIndicator() }
 
-                        result!!.tickets.isEmpty() ->
+                        currentResult.tickets.isEmpty() ->
                             Box(Modifier.fillMaxSize(), Alignment.Center) {
                                 Text(
                                     error ?: "No orders yet",
@@ -283,7 +284,7 @@ fun RecentOrdersScreen(
                             contentPadding = PaddingValues(12.dp),
                             verticalArrangement = Arrangement.spacedBy(10.dp),
                         ) {
-                            items(result!!.tickets, key = { it.id }) { t ->
+                            items(currentResult.tickets, key = { it.id }) { t ->
                                 val isSelected = selectedOrderId == t.id
                                 Surface(
                                     onClick = { selectedOrderId = t.id },
@@ -465,11 +466,12 @@ fun RecentOrdersScreen(
                     }
                 }
 
+                val currentResult = result
                 when {
-                    result == null ->
+                    currentResult == null ->
                         Box(Modifier.fillMaxSize(), Alignment.Center) { CircularProgressIndicator() }
 
-                    result!!.tickets.isEmpty() ->
+                    currentResult.tickets.isEmpty() ->
                         Box(Modifier.fillMaxSize(), Alignment.Center) {
                             Text(
                                 error ?: "No orders yet",
@@ -481,7 +483,7 @@ fun RecentOrdersScreen(
                         contentPadding = PaddingValues(12.dp),
                         verticalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
-                        items(result!!.tickets, key = { it.id }) { t ->
+                        items(currentResult.tickets, key = { it.id }) { t ->
                             OrderRowCard(t) { openDetail(t.id) }
                         }
                     }
