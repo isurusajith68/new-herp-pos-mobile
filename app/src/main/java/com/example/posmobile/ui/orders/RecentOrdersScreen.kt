@@ -107,9 +107,11 @@ fun RecentOrdersScreen(
     var selectedOrderId by remember { mutableStateOf<String?>(null) }
     var detailOpen by remember { mutableStateOf(false) }
     var detail by remember { mutableStateOf<PosOrderTicket?>(null) }
+    var reprinting by remember { mutableStateOf(false) }
 
     var tabletDetail by remember { mutableStateOf<PosOrderTicket?>(null) }
     var tabletDetailLoading by remember { mutableStateOf(false) }
+    var tabletReprinting by remember { mutableStateOf(false) }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
@@ -176,14 +178,17 @@ fun RecentOrdersScreen(
         }
     }
 
-    fun reprint(ticket: PosOrderTicket) {
+    fun reprint(ticket: PosOrderTicket, isTablet: Boolean = false) {
         scope.launch {
+            if (isTablet) tabletReprinting = true else reprinting = true
             if (!ensureBtPermission()) {
                 snackbar.showMessage("Allow Bluetooth, then try again")
+                if (isTablet) tabletReprinting = false else reprinting = false
                 return@launch
             }
             if (settings.printerMac == null) {
                 snackbar.showMessage("No printer selected — open Printer settings")
+                if (isTablet) tabletReprinting = false else reprinting = false
                 return@launch
             }
             try {
@@ -193,6 +198,8 @@ fun RecentOrdersScreen(
                 snackbar.showMessage("Reprinted order #${ticket.orderNo}")
             } catch (e: PrinterException) {
                 snackbar.showMessage(e.message ?: "Print failed")
+            } finally {
+                if (isTablet) tabletReprinting = false else reprinting = false
             }
         }
     }
@@ -390,7 +397,8 @@ fun RecentOrdersScreen(
                             tabletDetail != null -> {
                                 OrderDetailContent(
                                     ticket = tabletDetail,
-                                    onReprint = { tabletDetail?.let(::reprint) },
+                                    onReprint = { tabletDetail?.let { reprint(it, isTablet = true) } },
+                                    reprinting = tabletReprinting,
                                     isInline = true,
                                     modifier = Modifier.fillMaxSize()
                                 )
@@ -486,7 +494,8 @@ fun RecentOrdersScreen(
         OrderDetailSheet(
             ticket = detail,
             onDismiss = { detailOpen = false },
-            onReprint = { detail?.let(::reprint) },
+            onReprint = { detail?.let { reprint(it, isTablet = false) } },
+            reprinting = reprinting,
         )
     }
 }
@@ -495,6 +504,7 @@ fun RecentOrdersScreen(
 fun OrderDetailContent(
     ticket: PosOrderTicket?,
     onReprint: () -> Unit,
+    reprinting: Boolean = false,
     isInline: Boolean,
     modifier: Modifier = Modifier,
 ) {
@@ -620,16 +630,24 @@ fun OrderDetailContent(
         // Reprint button
         Button(
             onClick = onReprint,
+            enabled = !reprinting,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(50.dp)
         ) {
-            Icon(Icons.Filled.Print, contentDescription = null)
-            Spacer(Modifier.size(8.dp))
-            Text(
-                text = "Reprint KOT + receipt",
-                fontWeight = FontWeight.Bold
-            )
+            if (reprinting) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(20.dp),
+                    strokeWidth = 2.dp,
+                    color = MaterialTheme.colorScheme.onPrimary,
+                )
+                Spacer(Modifier.size(8.dp))
+                Text(text = "Printing…", fontWeight = FontWeight.Bold)
+            } else {
+                Icon(Icons.Filled.Print, contentDescription = null)
+                Spacer(Modifier.size(8.dp))
+                Text(text = "Reprint KOT + receipt", fontWeight = FontWeight.Bold)
+            }
         }
     }
 }
@@ -640,12 +658,14 @@ private fun OrderDetailSheet(
     ticket: PosOrderTicket?,
     onDismiss: () -> Unit,
     onReprint: () -> Unit,
+    reprinting: Boolean = false,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
         OrderDetailContent(
             ticket = ticket,
             onReprint = onReprint,
+            reprinting = reprinting,
             isInline = false,
             modifier = Modifier
                 .fillMaxWidth()
