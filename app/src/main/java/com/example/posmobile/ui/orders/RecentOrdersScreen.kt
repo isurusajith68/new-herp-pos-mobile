@@ -211,9 +211,10 @@ fun RecentOrdersScreen(
                     printedKot = true
                 }
                 if (settings.isPrinterConfigured) {
-                    printer.print(
-                        bytes = Receipts.customerReceipt(ticket, settings.paperCols, outlet.propertyName, outlet.locationName)
-                    )
+                    val receiptBytes = Receipts.customerReceipt(ticket, settings.paperCols, outlet.propertyName, outlet.locationName)
+                    repeat(settings.receiptCopies) {
+                        printer.print(bytes = receiptBytes)
+                    }
                     printedReceipt = true
                 }
                 

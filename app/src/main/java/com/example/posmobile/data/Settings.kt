@@ -51,6 +51,10 @@ class Settings(context: Context) {
         get() = prefs.getInt(KEY_PAPER_COLS, 32)
         set(v) = prefs.edit().putInt(KEY_PAPER_COLS, v).apply()
 
+    var receiptCopies: Int
+        get() = prefs.getInt(KEY_RECEIPT_COPIES, 1)
+        set(v) = prefs.edit().putInt(KEY_RECEIPT_COPIES, v.coerceAtLeast(1)).apply()
+
     /** Kitchen printer settings */
     var kitchenPrinterType: String
         get() = prefs.getString(KEY_KITCHEN_PRINTER_TYPE, TYPE_BLUETOOTH) ?: TYPE_BLUETOOTH
@@ -114,6 +118,7 @@ class Settings(context: Context) {
         private const val KEY_PRINTER_HOST = "printer_host"
         private const val KEY_PRINTER_PORT = "printer_port"
         private const val KEY_PAPER_COLS = "paper_cols"
+        private const val KEY_RECEIPT_COPIES = "receipt_copies"
         private const val KEY_KITCHEN_PRINTER_TYPE = "kitchen_printer_type"
         private const val KEY_KITCHEN_PRINTER_MAC = "kitchen_printer_mac"
         private const val KEY_KITCHEN_PRINTER_NAME = "kitchen_printer_name"

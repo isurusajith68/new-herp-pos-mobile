@@ -76,6 +76,7 @@ fun PrinterScreen(onBack: () -> Unit) {
     var receiptHost by remember { mutableStateOf(settings.printerHost ?: "") }
     var receiptPort by remember { mutableStateOf(settings.printerPort.toString()) }
     var receiptCols by remember { mutableStateOf(settings.paperCols) }
+    var receiptCopies by remember { mutableStateOf(settings.receiptCopies) }
 
     // Kitchen Printer State
     var kitchenType by remember { mutableStateOf(settings.kitchenPrinterType) }
@@ -257,6 +258,29 @@ fun PrinterScreen(onBack: () -> Unit) {
                             onClick = { updatePaperCols(48) },
                             label = { Text("80 mm") },
                         )
+                    }
+
+                    if (activeTab == 0) {
+                        Spacer(Modifier.height(16.dp))
+                        Text("Receipt copies", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                        Spacer(Modifier.height(6.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            FilterChip(
+                                selected = receiptCopies == 1,
+                                onClick = { receiptCopies = 1; settings.receiptCopies = 1 },
+                                label = { Text("1 copy") },
+                            )
+                            FilterChip(
+                                selected = receiptCopies == 2,
+                                onClick = { receiptCopies = 2; settings.receiptCopies = 2 },
+                                label = { Text("2 copies") },
+                            )
+                            FilterChip(
+                                selected = receiptCopies == 3,
+                                onClick = { receiptCopies = 3; settings.receiptCopies = 3 },
+                                label = { Text("3 copies") },
+                            )
+                        }
                     }
 
                     Spacer(Modifier.height(16.dp))
