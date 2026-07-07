@@ -5,7 +5,11 @@ import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,12 +17,14 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyRow
@@ -34,6 +40,7 @@ import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Print
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.ShoppingCart
+import androidx.compose.material.icons.filled.SoupKitchen
 import androidx.compose.material.icons.filled.Storefront
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -44,6 +51,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -110,6 +118,7 @@ fun OrderScreen(
     onOpenPrinter: () -> Unit,
     onOpenProfile: () -> Unit,
     onOpenOrders: () -> Unit,
+    onOpenKitchens: () -> Unit,
     vm: OrderViewModel = viewModel(),
 ) {
     LaunchedEffect(outlet.locationId) { vm.bind(outlet) }
@@ -205,45 +214,39 @@ fun OrderScreen(
                         onOpenOrders = onOpenOrders,
                         onOpenPrinter = onOpenPrinter,
                         onOpenProfile = onOpenProfile,
+                        onOpenKitchens = onOpenKitchens,
                     )
 
-                    val categories = vm.categories
-                    LazyRow(
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        item {
-                            CategoryPill("🍴", "All", vm.activeCategory == OrderViewModel.ALL) {
-                                vm.selectCategory(OrderViewModel.ALL)
-                            }
-                        }
-                        items(categories) { cat ->
-                            CategoryPill(catEmoji(cat), cat, vm.activeCategory == cat) {
-                                vm.selectCategory(cat)
-                            }
-                        }
-                    }
+                    Row(Modifier.weight(1f).fillMaxWidth()) {
+                        CategorySidebar(
+                            categories = vm.categories,
+                            activeCategory = vm.activeCategory,
+                            onCategorySelected = { vm.selectCategory(it) }
+                        )
+                        VerticalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
-                    when {
-                        vm.menuItems == null ->
-                            Box(Modifier.fillMaxSize(), Alignment.Center) { CircularProgressIndicator() }
+                        when {
+                            vm.menuItems == null ->
+                                Box(Modifier.fillMaxSize(), Alignment.Center) { CircularProgressIndicator() }
 
-                        vm.visibleMenu().isEmpty() ->
-                            Box(Modifier.fillMaxSize(), Alignment.Center) {
-                                Text(
-                                    vm.loadError ?: "No items match your search",
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
+                            vm.visibleMenu().isEmpty() ->
+                                Box(Modifier.fillMaxSize(), Alignment.Center) {
+                                    Text(
+                                        vm.loadError ?: "No items match your search",
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
 
-                        else -> LazyVerticalGrid(
-                            columns = GridCells.Adaptive(minSize = 158.dp),
-                            contentPadding = PaddingValues(12.dp),
-                            horizontalArrangement = Arrangement.spacedBy(10.dp),
-                            verticalArrangement = Arrangement.spacedBy(10.dp),
-                        ) {
-                            items(vm.visibleMenu(), key = { it.id }) { item ->
-                                MenuCard(item) { addItem = item }
+                            else -> LazyVerticalGrid(
+                                columns = GridCells.Adaptive(minSize = 158.dp),
+                                contentPadding = PaddingValues(12.dp),
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                verticalArrangement = Arrangement.spacedBy(10.dp),
+                                modifier = Modifier.fillMaxSize()
+                            ) {
+                                items(vm.visibleMenu(), key = { it.id }) { item ->
+                                    MenuCard(item) { addItem = item }
+                                }
                             }
                         }
                     }
@@ -288,6 +291,7 @@ fun OrderScreen(
                     onOpenOrders = onOpenOrders,
                     onOpenPrinter = onOpenPrinter,
                     onOpenProfile = onOpenProfile,
+                    onOpenKitchens = onOpenKitchens,
                 )
 
                 val categories = vm.categories
@@ -371,6 +375,7 @@ private fun OrderHero(
     onOpenOrders: () -> Unit,
     onOpenPrinter: () -> Unit,
     onOpenProfile: () -> Unit,
+    onOpenKitchens: () -> Unit,
 ) {
     Column(
         Modifier
@@ -403,6 +408,9 @@ private fun OrderHero(
             }
             IconButton(onClick = onOpenOrders) {
                 Icon(Icons.AutoMirrored.Filled.ReceiptLong, "Recent orders", tint = Color.White)
+            }
+            IconButton(onClick = onOpenKitchens) {
+                Icon(Icons.Filled.SoupKitchen, "Kitchens", tint = Color.White)
             }
             IconButton(onClick = onOpenPrinter) {
                 Icon(Icons.Filled.Print, "Printer", tint = Color.White)
@@ -551,4 +559,74 @@ private fun OrderBar(qty: Int, total: String, onClick: () -> Unit) {
 private suspend fun androidx.compose.material3.SnackbarHostState.showMessage(msg: String) {
     currentSnackbarData?.dismiss()
     showSnackbar(msg)
+}
+
+@Composable
+private fun CategorySidebar(
+    categories: List<String>,
+    activeCategory: String,
+    onCategorySelected: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier
+            .width(96.dp)
+            .fillMaxHeight()
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
+            .verticalScroll(rememberScrollState())
+            .padding(vertical = 8.dp, horizontal = 4.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        CategorySidebarTile(
+            emoji = "🍴",
+            label = "All Items",
+            isSelected = activeCategory == OrderViewModel.ALL,
+            onClick = { onCategorySelected(OrderViewModel.ALL) }
+        )
+        categories.forEach { cat ->
+            CategorySidebarTile(
+                emoji = catEmoji(cat),
+                label = cat,
+                isSelected = activeCategory == cat,
+                onClick = { onCategorySelected(cat) }
+            )
+        }
+    }
+}
+
+@Composable
+private fun CategorySidebarTile(
+    emoji: String,
+    label: String,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(82.dp)
+            .clickable { onClick() },
+        shape = RoundedCornerShape(14.dp),
+        color = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent,
+        contentColor = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+    ) {
+        Column(
+            modifier = Modifier.padding(4.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Text(emoji, fontSize = 22.sp)
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = label,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                lineHeight = 12.sp
+            )
+        }
+    }
 }

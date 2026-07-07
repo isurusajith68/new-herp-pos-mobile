@@ -74,6 +74,7 @@ import com.example.posmobile.ui.Outlet
 import com.example.posmobile.ui.formatCents
 import com.example.posmobile.ui.theme.BrandBlue
 import com.example.posmobile.ui.theme.BrandBlueDark
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 private val STATUS_FILTERS = listOf(
@@ -99,6 +100,7 @@ fun RecentOrdersScreen(
     val snackbar = remember { SnackbarHostState() }
 
     var status by remember { mutableStateOf<String?>(null) }
+    var reloadKey by remember { mutableStateOf(0) }
     var result by remember { mutableStateOf<TicketListResult?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
 
@@ -121,22 +123,35 @@ fun RecentOrdersScreen(
         return false
     }
 
-    fun load() {
-        error = null
-        result = null
+    fun load(silent: Boolean = false) {
+        if (!silent) {
+            error = null
+            result = null
+        }
         scope.launch {
             try {
                 result = pos.recentTickets(outlet.propertySlug, outlet.locationId, status)
+                if (selectedOrderId != null) {
+                    tabletDetail = runCatching { pos.ticket(outlet.propertySlug, selectedOrderId!!) }.getOrNull()
+                }
             } catch (e: Exception) {
-                error = e.message ?: "Couldn't load orders"
-                result = TicketListResult()
+                if (!silent) {
+                    error = e.message ?: "Couldn't load orders"
+                    result = TicketListResult()
+                }
             }
         }
     }
 
-    LaunchedEffect(status) {
-        selectedOrderId = null
-        load()
+    LaunchedEffect(status, reloadKey) {
+        if (reloadKey == 0) {
+            selectedOrderId = null
+        }
+        load(silent = reloadKey > 0)
+        while (true) {
+            delay(10_000)
+            load(silent = true)
+        }
     }
 
     LaunchedEffect(selectedOrderId) {
@@ -226,7 +241,7 @@ fun RecentOrdersScreen(
                             IconButton(onClick = onOpenPrinter) {
                                 Icon(Icons.Filled.Print, "Printer", tint = Color.White)
                             }
-                            IconButton(onClick = { load() }) {
+                            IconButton(onClick = { reloadKey++ }) {
                                 Icon(Icons.Filled.Refresh, "Refresh", tint = Color.White)
                             }
                         }
@@ -423,7 +438,7 @@ fun RecentOrdersScreen(
                         IconButton(onClick = onOpenPrinter) {
                             Icon(Icons.Filled.Print, "Printer", tint = Color.White)
                         }
-                        IconButton(onClick = { load() }) {
+                        IconButton(onClick = { reloadKey++ }) {
                             Icon(Icons.Filled.Refresh, "Refresh", tint = Color.White)
                         }
                     }

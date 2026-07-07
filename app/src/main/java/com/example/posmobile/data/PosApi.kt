@@ -59,4 +59,22 @@ interface PosApi {
 
     @POST
     suspend fun createTicket(@Url url: String, @Body body: CreateTicketBody): PosOrderTicket
+
+    @GET
+    suspend fun kitchenLocations(@Url url: String): List<KitchenLocationSummary>
+
+    @GET
+    suspend fun kitchenOrders(@Url url: String): List<KitchenOrder>
+
+    @GET
+    suspend fun checkedInReservations(@Url url: String): List<CheckedInReservation>
+
+    @retrofit2.http.PATCH
+    suspend fun setKitchenStatus(@Url url: String, @Body body: UpdateKitchenStatusBody): GenericOkResponse
+
+    @retrofit2.http.PATCH
+    suspend fun cancelKitchenItems(@Url url: String, @Body body: EmptyBody): GenericOkResponse
+
+    @retrofit2.http.PATCH
+    suspend fun cancelKitchenItem(@Url url: String, @Body body: EmptyBody): GenericOkResponse
 }

@@ -19,6 +19,8 @@ import androidx.navigation.compose.rememberNavController
 import com.example.posmobile.data.Container
 import com.example.posmobile.ui.AuthState
 import com.example.posmobile.ui.SessionViewModel
+import com.example.posmobile.ui.kitchen.KitchensScreen
+import com.example.posmobile.ui.kitchen.KitchenBoardScreen
 import com.example.posmobile.ui.login.LoginScreen
 import com.example.posmobile.ui.order.OrderScreen
 import com.example.posmobile.ui.orders.RecentOrdersScreen
@@ -83,6 +85,7 @@ private fun SignedInNav(session: SessionViewModel) {
                     onOpenPrinter = { nav.navigate("printer") },
                     onOpenProfile = { nav.navigate("profile") },
                     onOpenOrders = { nav.navigate("orders") },
+                    onOpenKitchens = { nav.navigate("kitchens") },
                 )
             }
         }
@@ -97,6 +100,39 @@ private fun SignedInNav(session: SessionViewModel) {
                     outlet = outlet,
                     onBack = { nav.popBackStack() },
                     onOpenPrinter = { nav.navigate("printer") },
+                )
+            }
+        }
+        composable("kitchens") {
+            val outlet = session.selectedOutlet
+            if (outlet == null) {
+                androidx.compose.runtime.LaunchedEffect(Unit) {
+                    nav.popBackStack("outlets", inclusive = false)
+                }
+            } else {
+                KitchensScreen(
+                    outlet = outlet,
+                    onBack = { nav.popBackStack() },
+                    onKitchenChosen = { id, name ->
+                        nav.navigate("kitchen_board/$id/$name")
+                    }
+                )
+            }
+        }
+        composable("kitchen_board/{prepLocationId}/{prepLocationName}") { backStackEntry ->
+            val outlet = session.selectedOutlet
+            val prepLocationId = backStackEntry.arguments?.getString("prepLocationId").orEmpty()
+            val prepLocationName = backStackEntry.arguments?.getString("prepLocationName").orEmpty()
+            if (outlet == null) {
+                androidx.compose.runtime.LaunchedEffect(Unit) {
+                    nav.popBackStack("outlets", inclusive = false)
+                }
+            } else {
+                KitchenBoardScreen(
+                    outlet = outlet,
+                    prepLocationId = prepLocationId,
+                    prepLocationName = prepLocationName,
+                    onBack = { nav.popBackStack() }
                 )
             }
         }

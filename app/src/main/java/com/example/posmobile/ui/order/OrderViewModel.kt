@@ -6,6 +6,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.posmobile.data.CheckedInReservation
 import com.example.posmobile.data.Container
 import com.example.posmobile.data.CreateTicketBody
 import com.example.posmobile.data.OrderableMenuItem
@@ -40,6 +41,8 @@ class OrderViewModel : ViewModel() {
         private set
     var tables by mutableStateOf<List<PosTable>>(emptyList())
         private set
+    var reservations by mutableStateOf<List<CheckedInReservation>>(emptyList())
+        private set
     var loadError by mutableStateOf<String?>(null)
         private set
 
@@ -51,6 +54,10 @@ class OrderViewModel : ViewModel() {
     var orderType by mutableStateOf("takeaway")
         private set
     var tableId by mutableStateOf("")
+        private set
+    var reservationId by mutableStateOf("")
+        private set
+    var roomId by mutableStateOf("")
         private set
     var remarks by mutableStateOf("")
         private set
@@ -69,12 +76,17 @@ class OrderViewModel : ViewModel() {
         bound = true
         loadMenu()
         loadTables()
+        loadReservations()
     }
 
     fun updateSearch(value: String) { search = value }
     fun selectCategory(cat: String) { activeCategory = cat }
     fun selectOrderType(type: String) { orderType = type }
     fun selectTable(id: String) { tableId = id }
+    fun selectReservation(resId: String, room: String) {
+        reservationId = resId
+        roomId = room
+    }
     fun updateRemarks(value: String) { remarks = value }
 
     val categories: List<String>
@@ -107,6 +119,16 @@ class OrderViewModel : ViewModel() {
         viewModelScope.launch {
             tables = try {
                 pos.tables(outlet.propertySlug, outlet.locationId)
+            } catch (_: Exception) {
+                emptyList()
+            }
+        }
+    }
+
+    private fun loadReservations() {
+        viewModelScope.launch {
+            reservations = try {
+                pos.checkedInReservations(outlet.propertySlug)
             } catch (_: Exception) {
                 emptyList()
             }
@@ -181,6 +203,8 @@ class OrderViewModel : ViewModel() {
             locationId = outlet.locationId,
             orderType = effectiveType,
             tableId = if (effectiveType == "dine_in") tableId else null,
+            reservationId = reservationId.ifBlank { null },
+            roomId = roomId.ifBlank { null },
             remarks = remarks.trim().ifBlank { null },
             items = cart.map {
                 TicketItemInput(
@@ -208,6 +232,8 @@ class OrderViewModel : ViewModel() {
         cart.clear()
         remarks = ""
         tableId = ""
+        reservationId = ""
+        roomId = ""
     }
 
     companion object {

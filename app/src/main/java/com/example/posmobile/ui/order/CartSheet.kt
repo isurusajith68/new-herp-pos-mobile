@@ -10,13 +10,16 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Hotel
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -92,6 +95,9 @@ fun CartContent(
                 ) { Text(label) }
             }
         }
+
+        Spacer(Modifier.height(8.dp))
+        GuestDropdown(vm)
 
         if (vm.orderType == "dine_in") {
             Spacer(Modifier.height(8.dp))
@@ -237,6 +243,60 @@ private fun TableDropdown(vm: OrderViewModel) {
                 DropdownMenuItem(
                     text = { Text("${table.name} (${table.seats} seats)") },
                     onClick = { vm.selectTable(table.id); expanded = false },
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun GuestDropdown(vm: OrderViewModel) {
+    var expanded by remember { mutableStateOf(false) }
+    val selected = vm.reservations.firstOrNull { it.reservationId == vm.reservationId }
+
+    Box(Modifier.fillMaxWidth()) {
+        OutlinedButton(
+            onClick = { expanded = true },
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Icon(
+                Icons.Filled.Hotel,
+                contentDescription = null,
+                modifier = Modifier.size(18.dp)
+            )
+            Spacer(Modifier.width(8.dp))
+            Text(
+                selected?.let { "Room ${it.roomNumber} – ${it.guestName}" } ?: "Link guest (charge to room)",
+                modifier = Modifier.weight(1f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            if (selected != null) {
+                IconButton(
+                    onClick = {
+                        vm.selectReservation("", "")
+                    },
+                    modifier = Modifier.size(24.dp)
+                ) {
+                    Icon(
+                        Icons.Filled.Close,
+                        contentDescription = "Clear guest",
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            } else {
+                Icon(Icons.Filled.ArrowDropDown, contentDescription = null)
+            }
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            if (vm.reservations.isEmpty()) {
+                DropdownMenuItem(text = { Text("No checked-in guests") }, onClick = { expanded = false })
+            }
+            vm.reservations.forEach { res ->
+                DropdownMenuItem(
+                    text = { Text("Room ${res.roomNumber} – ${res.guestName}") },
+                    onClick = { vm.selectReservation(res.reservationId, res.roomId); expanded = false },
                 )
             }
         }

@@ -172,3 +172,54 @@ data class TicketListResult(
     val total: Int = 0,
     val statusCounts: TicketStatusCounts = TicketStatusCounts(),
 )
+
+@Serializable
+data class KitchenLocationSummary(
+    val id: String,
+    val name: String,
+    val newCount: Int = 0,
+    val confirmedCount: Int = 0,
+    val inProcessCount: Int = 0,
+    val completedCount: Int = 0,
+)
+
+@Serializable
+data class KitchenOrderItem(
+    val id: String,
+    val itemName: String,
+    val itemType: String = "food",
+    val quantity: Int,
+    val kitchenStatus: String = "pending",
+)
+
+@Serializable
+data class KitchenOrder(
+    val ticketId: String,
+    val orderNo: Int,
+    val orderDate: String,
+    val status: String,
+    val orderType: String,
+    val kitchenStatus: String,
+    val tableName: String? = null,
+    val guestName: String? = null,
+    val items: List<KitchenOrderItem> = emptyList(),
+)
+
+@Serializable
+data class UpdateKitchenStatusBody(val kitchenStatus: String)
+
+@Serializable
+data class GenericOkResponse(val ok: Boolean = true)
+
+@Serializable
+class EmptyBody
+
+@Serializable
+data class CheckedInReservation(
+    val reservationId: String,
+    val roomId: String,
+    val roomNumber: String,
+    val guestName: String,
+    val checkIn: String? = null,
+    val checkOut: String? = null,
+)
