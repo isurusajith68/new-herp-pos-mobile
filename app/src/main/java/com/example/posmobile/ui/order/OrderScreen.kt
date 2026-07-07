@@ -70,6 +70,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.posmobile.data.Container
+import com.example.posmobile.data.Settings
 import com.example.posmobile.data.OrderableMenuItem
 import com.example.posmobile.print.PrinterException
 import com.example.posmobile.print.Receipts
@@ -160,15 +161,16 @@ fun OrderScreen(
             }
             snackbar.showMessage("Order #${ticket.orderNo} placed")
 
-            if (!ensureBtPermission()) {
+            // Bluetooth needs runtime permission; WiFi (TCP) does not.
+            if (settings.printerType != Settings.TYPE_WIFI && !ensureBtPermission()) {
                 snackbar.showMessage("Allow Bluetooth, then reprint from settings")
                 cartOpen = false
                 vm.resetAfterOrder()
                 vm.placing = false
                 return@launch
             }
-            if (settings.printerMac == null) {
-                snackbar.showMessage("No printer selected — open Printer settings")
+            if (!settings.isPrinterConfigured) {
+                snackbar.showMessage("No printer set — open Printer settings")
                 cartOpen = false
                 vm.resetAfterOrder()
                 vm.placing = false

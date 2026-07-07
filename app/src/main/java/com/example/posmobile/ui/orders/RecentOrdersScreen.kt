@@ -66,6 +66,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.posmobile.data.Container
+import com.example.posmobile.data.Settings
 import com.example.posmobile.data.PosOrderTicket
 import com.example.posmobile.data.TicketListResult
 import com.example.posmobile.print.PrinterException
@@ -181,13 +182,14 @@ fun RecentOrdersScreen(
     fun reprint(ticket: PosOrderTicket, isTablet: Boolean = false) {
         scope.launch {
             if (isTablet) tabletReprinting = true else reprinting = true
-            if (!ensureBtPermission()) {
+            // Bluetooth needs runtime permission; WiFi (TCP) does not.
+            if (settings.printerType != Settings.TYPE_WIFI && !ensureBtPermission()) {
                 snackbar.showMessage("Allow Bluetooth, then try again")
                 if (isTablet) tabletReprinting = false else reprinting = false
                 return@launch
             }
-            if (settings.printerMac == null) {
-                snackbar.showMessage("No printer selected — open Printer settings")
+            if (!settings.isPrinterConfigured) {
+                snackbar.showMessage("No printer set — open Printer settings")
                 if (isTablet) tabletReprinting = false else reprinting = false
                 return@launch
             }

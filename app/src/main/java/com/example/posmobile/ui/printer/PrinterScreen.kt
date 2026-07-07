@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
@@ -31,6 +32,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -46,8 +48,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.example.posmobile.data.Container
+import com.example.posmobile.data.Settings
 import com.example.posmobile.print.BtPrinter
 import com.example.posmobile.print.EscPos
 import com.example.posmobile.print.PrinterException
@@ -61,10 +65,16 @@ fun PrinterScreen(onBack: () -> Unit) {
     val scope = rememberCoroutineScope()
     val snackbar = remember { SnackbarHostState() }
 
+    var printerType by remember { mutableStateOf(settings.printerType) }
     var devices by remember { mutableStateOf<List<BtPrinter>>(emptyList()) }
     var selectedMac by remember { mutableStateOf(settings.printerMac) }
+    var wifiHost by remember { mutableStateOf(settings.printerHost ?: "") }
+    var wifiPort by remember { mutableStateOf(settings.printerPort.toString()) }
     var paperCols by remember { mutableStateOf(settings.paperCols) }
     var status by remember { mutableStateOf<String?>(null) }
+
+    val isWifi = printerType == Settings.TYPE_WIFI
+    val canPrint = if (isWifi) wifiHost.isNotBlank() else selectedMac != null
 
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
@@ -92,7 +102,7 @@ fun PrinterScreen(onBack: () -> Unit) {
         }
     }
 
-    LaunchedEffect(Unit) { refresh() }
+    LaunchedEffect(printerType) { if (!isWifi) refresh() else status = null }
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbar) },
@@ -138,54 +148,105 @@ fun PrinterScreen(onBack: () -> Unit) {
                 }
 
                 Spacer(Modifier.height(16.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        "Paired printers",
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.weight(1f),
+                Text("Connection", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                Spacer(Modifier.height(6.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(
+                        selected = !isWifi,
+                        onClick = { printerType = Settings.TYPE_BLUETOOTH; settings.printerType = Settings.TYPE_BLUETOOTH },
+                        label = { Text("Bluetooth") },
                     )
-                    OutlinedButton(onClick = { refresh() }) { Text("Refresh") }
+                    FilterChip(
+                        selected = isWifi,
+                        onClick = { printerType = Settings.TYPE_WIFI; settings.printerType = Settings.TYPE_WIFI },
+                        label = { Text("Wi-Fi") },
+                    )
                 }
-                Spacer(Modifier.height(8.dp))
 
-                status?.let {
-                    Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                Spacer(Modifier.height(16.dp))
+
+                if (isWifi) {
+                    Text("Wi-Fi printer", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
                     Spacer(Modifier.height(8.dp))
-                }
+                    OutlinedTextField(
+                        value = wifiHost,
+                        onValueChange = { wifiHost = it; settings.printerHost = it },
+                        label = { Text("IP address") },
+                        placeholder = { Text("192.168.1.50") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = wifiPort,
+                        onValueChange = { v ->
+                            wifiPort = v.filter { it.isDigit() }
+                            wifiPort.toIntOrNull()?.let { settings.printerPort = it }
+                        },
+                        label = { Text("Port") },
+                        placeholder = { Text("9100") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "Most thermal printers use port 9100. Set a fixed IP (DHCP reservation) on your router so it doesn't change.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.weight(1f))
+                } else {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            "Paired printers",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.weight(1f),
+                        )
+                        OutlinedButton(onClick = { refresh() }) { Text("Refresh") }
+                    }
+                    Spacer(Modifier.height(8.dp))
 
-                Box(Modifier.weight(1f)) {
-                    LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        items(devices) { d ->
-                            Card(
-                                Modifier
-                                    .fillMaxWidth()
-                                    .clickable {
-                                        selectedMac = d.mac
-                                        settings.printerMac = d.mac
-                                        settings.printerName = d.name
-                                    },
-                            ) {
-                                Row(
+                    status?.let {
+                        Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                        Spacer(Modifier.height(8.dp))
+                    }
+
+                    Box(Modifier.weight(1f)) {
+                        LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            items(devices) { d ->
+                                Card(
                                     Modifier
                                         .fillMaxWidth()
-                                        .padding(16.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
+                                        .clickable {
+                                            selectedMac = d.mac
+                                            settings.printerMac = d.mac
+                                            settings.printerName = d.name
+                                        },
                                 ) {
-                                    Column(Modifier.weight(1f)) {
-                                        Text(d.name, fontWeight = FontWeight.SemiBold)
-                                        Text(
-                                            d.mac,
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        )
-                                    }
-                                    if (selectedMac == d.mac) {
-                                        Icon(
-                                            Icons.Filled.CheckCircle,
-                                            contentDescription = "Selected",
-                                            tint = MaterialTheme.colorScheme.primary,
-                                        )
+                                    Row(
+                                        Modifier
+                                            .fillMaxWidth()
+                                            .padding(16.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        Column(Modifier.weight(1f)) {
+                                            Text(d.name, fontWeight = FontWeight.SemiBold)
+                                            Text(
+                                                d.mac,
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            )
+                                        }
+                                        if (selectedMac == d.mac) {
+                                            Icon(
+                                                Icons.Filled.CheckCircle,
+                                                contentDescription = "Selected",
+                                                tint = MaterialTheme.colorScheme.primary,
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -204,7 +265,7 @@ fun PrinterScreen(onBack: () -> Unit) {
                             }
                         }
                     },
-                    enabled = selectedMac != null,
+                    enabled = canPrint,
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     Icon(Icons.Filled.Print, contentDescription = null)

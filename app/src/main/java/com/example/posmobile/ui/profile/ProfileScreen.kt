@@ -55,6 +55,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.posmobile.BuildConfig
 import com.example.posmobile.data.Container
+import com.example.posmobile.data.Settings
 import com.example.posmobile.data.CurrentUser
 import com.example.posmobile.data.UpdateInfo
 import com.example.posmobile.data.Workspace
@@ -235,7 +236,10 @@ fun ProfileScreen(
                     InfoRow(
                         icon = Icons.Filled.Print,
                         label = "Printer",
-                        value = settings.printerName ?: "Not selected",
+                        value = when (settings.printerType) {
+                            Settings.TYPE_WIFI -> settings.printerHost?.takeIf { it.isNotBlank() }?.let { "Wi-Fi · $it" } ?: "Not set"
+                            else -> settings.printerName ?: "Not selected"
+                        },
                         onClick = onOpenPrinter,
                     )
                 }

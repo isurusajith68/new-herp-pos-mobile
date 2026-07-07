@@ -13,6 +13,8 @@ import androidx.core.content.ContextCompat
 import com.example.posmobile.data.Settings
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.net.InetSocketAddress
+import java.net.Socket
 import java.util.UUID
 
 data class BtPrinter(val name: String, val mac: String)
@@ -20,9 +22,12 @@ data class BtPrinter(val name: String, val mac: String)
 class PrinterException(message: String) : Exception(message)
 
 /**
- * Talks to a paired ("bonded") Bluetooth thermal printer over the Serial Port
- * Profile. The user pairs the printer once in Android settings; we list bonded
- * devices and connect on demand — no scanning, so no location permission.
+ * Sends ESC/POS payloads to a thermal printer over one of two transports,
+ * chosen by [Settings.printerType]:
+ *  - Bluetooth: a paired ("bonded") printer over the Serial Port Profile. The
+ *    user pairs it once in Android settings; we connect on demand — no scanning,
+ *    so no location permission.
+ *  - WiFi: a raw TCP socket to the printer's IP on port 9100 (JetDirect/RAW).
  */
 class PrinterService(
     private val context: Context,
@@ -53,8 +58,43 @@ class PrinterService(
         return a.bondedDevices.orEmpty().map { BtPrinter(it.name ?: it.address, it.address) }
     }
 
+    /**
+     * Sends a prepared ESC/POS payload to the active printer. The bytes are
+     * transport-agnostic (built by [EscPos]); we dispatch to Bluetooth or WiFi
+     * based on the user's selected connection type.
+     */
+    suspend fun print(bytes: ByteArray) {
+        when (settings.printerType) {
+            Settings.TYPE_WIFI -> printWifi(bytes)
+            else -> printBluetooth(bytes)
+        }
+    }
+
+    /** Raw ESC/POS over a TCP socket (port 9100 / JetDirect) to a networked printer. */
+    private suspend fun printWifi(bytes: ByteArray) = withContext(Dispatchers.IO) {
+        val host = settings.printerHost?.takeIf { it.isNotBlank() }
+            ?: throw PrinterException("No printer IP set — enter it in Printer settings")
+        val port = settings.printerPort
+        try {
+            Socket().use { socket ->
+                socket.connect(InetSocketAddress(host, port), WIFI_CONNECT_TIMEOUT_MS)
+                socket.getOutputStream().apply {
+                    write(bytes)
+                    flush()
+                }
+                // Give the printer time to flush its buffer before the socket closes.
+                Thread.sleep(400)
+            }
+        } catch (e: Exception) {
+            throw PrinterException(
+                "Could not reach printer at $host:$port — check it's powered on, " +
+                    "on the same Wi-Fi network and the IP is correct.",
+            )
+        }
+    }
+
     @SuppressLint("MissingPermission")
-    suspend fun print(bytes: ByteArray) = withContext(Dispatchers.IO) {
+    private suspend fun printBluetooth(bytes: ByteArray) = withContext(Dispatchers.IO) {
         if (!hasConnectPermission()) throw PrinterException("Bluetooth permission not granted")
         val mac = settings.printerMac
             ?: throw PrinterException("No printer selected — pick one in Printer settings")
@@ -133,5 +173,6 @@ class PrinterService(
     private companion object {
         const val CONNECT_RETRIES = 3
         const val CONNECT_RETRY_DELAY_MS = 400L
+        const val WIFI_CONNECT_TIMEOUT_MS = 5000
     }
 }
