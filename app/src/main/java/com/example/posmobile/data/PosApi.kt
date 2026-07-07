@@ -52,6 +52,9 @@ interface PosApi {
     suspend fun orderableMenuItems(@Url url: String): List<OrderableMenuItem>
 
     @GET
+    suspend fun orderableInventoryItems(@Url url: String): List<OrderableInvItem>
+
+    @GET
     suspend fun tickets(@Url url: String): TicketListResult
 
     @GET
@@ -77,4 +80,10 @@ interface PosApi {
 
     @retrofit2.http.PATCH
     suspend fun cancelKitchenItem(@Url url: String, @Body body: EmptyBody): GenericOkResponse
+
+    @GET
+    suspend fun getServiceCharge(@Url url: String): ServiceChargeSetting
+
+    @retrofit2.http.PATCH
+    suspend fun updateServiceCharge(@Url url: String, @Body body: UpdateServiceChargeBody): UpdateServiceChargeResponse
 }

@@ -100,6 +100,8 @@ fun RecentOrdersScreen(
     val scope = rememberCoroutineScope()
     val snackbar = remember { SnackbarHostState() }
 
+    var serviceChargePercent by remember { mutableStateOf(10.0) }
+
     var status by remember { mutableStateOf<String?>(null) }
     var reloadKey by remember { mutableStateOf(0) }
     var result by remember { mutableStateOf<TicketListResult?>(null) }
@@ -151,6 +153,12 @@ fun RecentOrdersScreen(
             selectedOrderId = null
         }
         load(silent = reloadKey > 0)
+        scope.launch {
+            runCatching {
+                val sc = pos.getServiceCharge(outlet.propertySlug)
+                serviceChargePercent = sc.pct
+            }
+        }
         while (true) {
             delay(10_000)
             load(silent = true)
@@ -211,7 +219,7 @@ fun RecentOrdersScreen(
                     printedKot = true
                 }
                 if (settings.isPrinterConfigured) {
-                    val receiptBytes = Receipts.customerReceipt(ticket, settings.paperCols, outlet.propertyName, outlet.locationName)
+                    val receiptBytes = Receipts.customerReceipt(ticket, settings.paperCols, outlet.propertyName, outlet.locationName, serviceChargePercent)
                     repeat(settings.receiptCopies) {
                         printer.print(bytes = receiptBytes)
                     }
@@ -370,7 +378,9 @@ fun RecentOrdersScreen(
                                                 }
                                             }
                                             Column(horizontalAlignment = Alignment.End) {
-                                                Text(formatCents(t.subtotalCents), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                                                val scCents = if (t.orderType == "dine_in") (t.subtotalCents * (serviceChargePercent / 100.0)).toInt() else 0
+                                                val totalCents = t.subtotalCents + scCents
+                                                Text(formatCents(totalCents), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                                                 Text(
                                                     listOfNotNull(t.orderDate, shortTime(t.createdAt)).joinToString(" · "),
                                                     style = MaterialTheme.typography.labelSmall,
@@ -430,6 +440,7 @@ fun RecentOrdersScreen(
                                     onReprint = { tabletDetail?.let { reprint(it, isTablet = true) } },
                                     reprinting = tabletReprinting,
                                     isInline = true,
+                                    serviceChargePercent = serviceChargePercent,
                                     modifier = Modifier.fillMaxSize()
                                 )
                             }
@@ -513,7 +524,7 @@ fun RecentOrdersScreen(
                         verticalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
                         items(currentResult.tickets, key = { it.id }) { t ->
-                            OrderRowCard(t) { openDetail(t.id) }
+                            OrderRowCard(t, serviceChargePercent) { openDetail(t.id) }
                         }
                     }
                 }
@@ -527,6 +538,7 @@ fun RecentOrdersScreen(
             onDismiss = { detailOpen = false },
             onReprint = { detail?.let { reprint(it, isTablet = false) } },
             reprinting = reprinting,
+            serviceChargePercent = serviceChargePercent,
         )
     }
 }
@@ -537,6 +549,7 @@ fun OrderDetailContent(
     onReprint: () -> Unit,
     reprinting: Boolean = false,
     isInline: Boolean,
+    serviceChargePercent: Double = 0.0,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier) {
@@ -627,7 +640,34 @@ fun OrderDetailContent(
         HorizontalDivider()
         Spacer(Modifier.height(10.dp))
 
-        // Total row
+        // Calculations
+        val scCents = if (ticket.orderType == "dine_in") {
+            (ticket.subtotalCents * (serviceChargePercent / 100.0)).toInt()
+        } else {
+            0
+        }
+        val totalCents = ticket.subtotalCents + scCents
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("Subtotal", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(Modifier.weight(1f))
+            Text(formatCents(ticket.subtotalCents), style = MaterialTheme.typography.bodyMedium)
+        }
+        if (scCents > 0) {
+            Spacer(Modifier.height(4.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Service Charge (${serviceChargePercent}%)", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.weight(1f))
+                Text(formatCents(scCents), style = MaterialTheme.typography.bodyMedium)
+            }
+        }
+        Spacer(Modifier.height(8.dp))
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
@@ -639,7 +679,7 @@ fun OrderDetailContent(
             )
             Spacer(Modifier.weight(1f))
             Text(
-                text = formatCents(ticket.subtotalCents),
+                text = formatCents(totalCents),
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary
@@ -690,6 +730,7 @@ private fun OrderDetailSheet(
     onDismiss: () -> Unit,
     onReprint: () -> Unit,
     reprinting: Boolean = false,
+    serviceChargePercent: Double = 0.0,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
@@ -698,6 +739,7 @@ private fun OrderDetailSheet(
             onReprint = onReprint,
             reprinting = reprinting,
             isInline = false,
+            serviceChargePercent = serviceChargePercent,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 20.dp)
@@ -707,7 +749,7 @@ private fun OrderDetailSheet(
 }
 
 @Composable
-private fun OrderRowCard(t: PosOrderTicket, onClick: () -> Unit) {
+private fun OrderRowCard(t: PosOrderTicket, serviceChargePercent: Double, onClick: () -> Unit) {
     Surface(
         onClick = onClick,
         shape = RoundedCornerShape(16.dp),
@@ -747,7 +789,9 @@ private fun OrderRowCard(t: PosOrderTicket, onClick: () -> Unit) {
                 }
             }
             Column(horizontalAlignment = Alignment.End) {
-                Text(formatCents(t.subtotalCents), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                val scCents = if (t.orderType == "dine_in") (t.subtotalCents * (serviceChargePercent / 100.0)).toInt() else 0
+                val totalCents = t.subtotalCents + scCents
+                Text(formatCents(totalCents), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                 Text(
                     listOfNotNull(t.orderDate, shortTime(t.createdAt)).joinToString(" · "),
                     style = MaterialTheme.typography.labelSmall,

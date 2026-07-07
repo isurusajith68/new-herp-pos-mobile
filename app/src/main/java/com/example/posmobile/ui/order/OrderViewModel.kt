@@ -10,16 +10,19 @@ import com.example.posmobile.data.CheckedInReservation
 import com.example.posmobile.data.Container
 import com.example.posmobile.data.CreateTicketBody
 import com.example.posmobile.data.OrderableMenuItem
+import com.example.posmobile.data.OrderableInvItem
 import com.example.posmobile.data.PosOrderTicket
 import com.example.posmobile.data.PosTable
 import com.example.posmobile.data.TicketItemInput
 import com.example.posmobile.ui.Outlet
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.async
 
 /** A staged line in the current order. */
 data class CartLine(
     val key: Long,
     val menuItemId: String?,
+    val invItemId: String? = null,
     val itemName: String,
     val itemType: String,
     val quantity: Int,
@@ -67,6 +70,9 @@ class OrderViewModel : ViewModel() {
 
     var placing by mutableStateOf(false)
 
+    var serviceChargePercent by mutableStateOf(10.0)
+        private set
+
     private var bound = false
 
     fun bind(outlet: Outlet) {
@@ -76,6 +82,16 @@ class OrderViewModel : ViewModel() {
         loadMenu()
         loadTables()
         loadReservations()
+        loadServiceCharge()
+    }
+
+    private fun loadServiceCharge() {
+        viewModelScope.launch {
+            try {
+                val sc = pos.getServiceCharge(outlet.propertySlug)
+                serviceChargePercent = sc.pct
+            } catch (_: Exception) {}
+        }
     }
 
     fun updateSearch(value: String) { search = value }
@@ -106,7 +122,25 @@ class OrderViewModel : ViewModel() {
         menuItems = null
         viewModelScope.launch {
             try {
-                menuItems = pos.menuItems(outlet.propertySlug, outlet.locationId, search.ifBlank { null })
+                val menusDeferred = async {
+                    pos.menuItems(outlet.propertySlug, outlet.locationId, search.ifBlank { null })
+                }
+                val invsDeferred = async {
+                    pos.inventoryItems(outlet.propertySlug, search.ifBlank { null })
+                }
+                val menus = menusDeferred.await()
+                val invs = invsDeferred.await()
+
+                val mappedInvs = invs.map { inv ->
+                    OrderableMenuItem(
+                        id = inv.id,
+                        name = inv.name,
+                        description = inv.code,
+                        categoryName = "INV Beverage",
+                        isInventory = true
+                    )
+                }
+                menuItems = menus + mappedInvs
             } catch (e: Exception) {
                 loadError = e.message ?: "Could not load menu"
                 menuItems = emptyList()
@@ -136,6 +170,7 @@ class OrderViewModel : ViewModel() {
 
     fun addToCart(
         menuItemId: String?,
+        invItemId: String? = null,
         itemName: String,
         itemType: String,
         quantity: Int,
@@ -149,13 +184,14 @@ class OrderViewModel : ViewModel() {
         // Merge identical lines (same item, price option, prep location, price).
         val idx = cart.indexOfFirst {
             it.menuItemId == menuItemId &&
+                it.invItemId == invItemId &&
                 it.menuTypeId == menuTypeId &&
                 it.priceTierId == priceTierId &&
                 it.priceTypeId == priceTypeId &&
                 it.prepLocationId == prepLocationId &&
                 it.unitPriceCents == unitPriceCents
         }
-        if (menuItemId != null && idx >= 0) {
+        if ((menuItemId != null || invItemId != null) && idx >= 0) {
             val existing = cart[idx]
             cart[idx] = existing.copy(quantity = existing.quantity + quantity)
             return
@@ -164,6 +200,7 @@ class OrderViewModel : ViewModel() {
             CartLine(
                 key = keySeq++,
                 menuItemId = menuItemId,
+                invItemId = invItemId,
                 itemName = itemName,
                 itemType = itemType,
                 quantity = quantity,
@@ -189,6 +226,12 @@ class OrderViewModel : ViewModel() {
     fun clearCart() { cart.clear() }
 
     val subtotalCents: Int get() = cart.sumOf { it.quantity * it.unitPriceCents }
+    val serviceChargeCents: Int get() = if (orderType == "dine_in") {
+        (subtotalCents * (serviceChargePercent / 100.0)).toInt()
+    } else {
+        0
+    }
+    val totalCents: Int get() = subtotalCents + serviceChargeCents
     val totalQty: Int get() = cart.sumOf { it.quantity }
 
     /** Places the order. Returns the created ticket, or throws with a message. */
@@ -208,6 +251,7 @@ class OrderViewModel : ViewModel() {
             items = cart.map {
                 TicketItemInput(
                     menuItemId = it.menuItemId,
+                    invItemId = it.invItemId,
                     itemName = it.itemName,
                     itemType = it.itemType,
                     quantity = it.quantity,

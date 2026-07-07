@@ -94,6 +94,14 @@ data class OrderableMenuItem(
     val subcategoryName: String? = null,
     val prices: List<MenuItemPriceOption> = emptyList(),
     val prepLocations: List<PrepLocation> = emptyList(),
+    val isInventory: Boolean = false,
+)
+
+@Serializable
+data class OrderableInvItem(
+    val id: String,
+    val name: String,
+    val code: String? = null,
 )
 
 // ── Ticket create / response ────────────────────────────────────────────────
@@ -222,4 +230,20 @@ data class CheckedInReservation(
     val guestName: String,
     val checkIn: String? = null,
     val checkOut: String? = null,
+)
+
+@Serializable
+data class ServiceChargeSetting(
+    val pct: Double,
+)
+
+@Serializable
+data class UpdateServiceChargeBody(
+    val pct: Double,
+)
+
+@Serializable
+data class UpdateServiceChargeResponse(
+    val ok: Boolean,
+    val pct: Double,
 )

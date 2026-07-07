@@ -194,7 +194,7 @@ fun OrderScreen(
                     printedKot = true
                 }
                 if (settings.isPrinterConfigured) {
-                    val receiptBytes = Receipts.customerReceipt(ticket, settings.paperCols, outlet.propertyName, outlet.locationName)
+                    val receiptBytes = Receipts.customerReceipt(ticket, settings.paperCols, outlet.propertyName, outlet.locationName, vm.serviceChargePercent)
                     repeat(settings.receiptCopies) {
                         printer.print(bytes = receiptBytes)
                     }
@@ -227,7 +227,7 @@ fun OrderScreen(
             if (!isTablet && vm.cart.isNotEmpty()) {
                 OrderBar(
                     qty = vm.totalQty,
-                    total = formatCents(vm.subtotalCents),
+                    total = formatCents(vm.totalCents),
                     onClick = { cartOpen = true },
                 )
             }
@@ -383,7 +383,8 @@ fun OrderScreen(
             onDismiss = { addItem = null },
             onAdd = { qty, cents, itemType, prep, price ->
                 vm.addToCart(
-                    menuItemId = item.id,
+                    menuItemId = if (item.isInventory) null else item.id,
+                    invItemId = if (item.isInventory) item.id else null,
                     itemName = item.name,
                     itemType = itemType,
                     quantity = qty,

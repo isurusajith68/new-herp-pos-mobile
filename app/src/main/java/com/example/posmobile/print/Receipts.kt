@@ -65,6 +65,7 @@ object Receipts {
         cols: Int,
         propertyName: String,
         locationName: String,
+        serviceChargePercent: Double = 0.0,
     ): ByteArray {
         val e = EscPos(cols)
         e.align(EscPos.Align.CENTER).bold(true).bigSize(true)
@@ -83,9 +84,21 @@ object Receipts {
         }
 
         e.rule()
-        val total = ticket.items
+        val subtotal = ticket.items
             .filter { it.kitchenStatus != "cancelled" }
             .sumOf { it.amountCents }
+        
+        val serviceChargeCents = if (ticket.orderType == "dine_in") {
+            (subtotal * (serviceChargePercent / 100.0)).toInt()
+        } else {
+            0
+        }
+        val total = subtotal + serviceChargeCents
+
+        if (serviceChargeCents > 0) {
+            e.cols("SUBTOTAL", money(subtotal))
+            e.cols("SERVICE CHARGE (${serviceChargePercent}%)", money(serviceChargeCents))
+        }
         e.bold(true).cols("TOTAL", money(total)).bold(false)
         e.rule()
 

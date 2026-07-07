@@ -39,6 +39,16 @@ class PosRepository(
         return api.orderableMenuItems(url)
     }
 
+    suspend fun inventoryItems(
+        propertySlug: String,
+        search: String?,
+    ): List<OrderableInvItem> {
+        val url = Uri.parse("$base/pos/$propertySlug/orderable-inventory-items").buildUpon()
+            .apply { if (!search.isNullOrBlank()) appendQueryParameter("search", search) }
+            .build().toString()
+        return api.orderableInventoryItems(url)
+    }
+
     suspend fun recentTickets(
         propertySlug: String,
         locationId: String,
@@ -84,5 +94,13 @@ class PosRepository(
             "$base/pos/$propertySlug/ticket-items/$itemId/cancel",
             EmptyBody()
         )
+    }
+
+    suspend fun getServiceCharge(propertySlug: String): ServiceChargeSetting {
+        return api.getServiceCharge("$base/pos/$propertySlug/service-charge")
+    }
+
+    suspend fun updateServiceCharge(propertySlug: String, pct: Double): UpdateServiceChargeResponse {
+        return api.updateServiceCharge("$base/pos/$propertySlug/service-charge", UpdateServiceChargeBody(pct))
     }
 }

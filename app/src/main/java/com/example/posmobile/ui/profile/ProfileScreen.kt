@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Print
 import androidx.compose.material.icons.filled.Store
 import androidx.compose.material.icons.filled.SystemUpdate
+import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -34,6 +35,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -78,6 +80,13 @@ fun ProfileScreen(
     var loading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
 
+    // Service Charge Edit state
+    var serviceCharge by remember { mutableStateOf<Double?>(null) }
+    var showServiceChargeEditDialog by remember { mutableStateOf(false) }
+    var serviceChargeInput by remember { mutableStateOf("") }
+    var savingServiceCharge by remember { mutableStateOf(false) }
+    var saveError by remember { mutableStateOf<String?>(null) }
+
     // Update check state
     var checking by remember { mutableStateOf(false) }
     var pendingUpdate by remember { mutableStateOf<UpdateInfo?>(null) }
@@ -87,6 +96,12 @@ fun ProfileScreen(
         try {
             user = pos.me()
             workspace = runCatching { pos.currentWorkspace() }.getOrNull()
+            val properties = runCatching { pos.properties() }.getOrNull()
+            val propertySlug = properties?.firstOrNull()?.slug
+            if (propertySlug != null) {
+                val sc = runCatching { pos.getServiceCharge(propertySlug) }.getOrNull()
+                serviceCharge = sc?.pct
+            }
         } catch (e: Exception) {
             error = e.message ?: "Could not load profile"
         } finally {
@@ -242,6 +257,19 @@ fun ProfileScreen(
                         },
                         onClick = onOpenPrinter,
                     )
+                    serviceCharge?.let { pct ->
+                        HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
+                        InfoRow(
+                            icon = Icons.Filled.Receipt,
+                            label = "Service Charge",
+                            value = "${pct}%",
+                            onClick = {
+                                serviceChargeInput = pct.toString()
+                                showServiceChargeEditDialog = true
+                                saveError = null
+                            }
+                        )
+                    }
                 }
 
                 // ---- About section ----
@@ -329,6 +357,86 @@ fun ProfileScreen(
             dismissButton = {
                 TextButton(onClick = { pendingUpdate = null }) { Text("Later") }
             },
+        )
+    }
+
+    if (showServiceChargeEditDialog) {
+        AlertDialog(
+            onDismissRequest = { if (!savingServiceCharge) showServiceChargeEditDialog = false },
+            title = { Text("Edit Service Charge") },
+            text = {
+                Column {
+                    Text(
+                        "Enter the default service charge percentage for this property.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(bottom = 16.dp)
+                    )
+                    OutlinedTextField(
+                        value = serviceChargeInput,
+                        onValueChange = { serviceChargeInput = it },
+                        label = { Text("Service Charge %") },
+                        singleLine = true,
+                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal),
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = !savingServiceCharge
+                    )
+                    saveError?.let {
+                        Spacer(Modifier.height(8.dp))
+                        Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val pct = serviceChargeInput.toDoubleOrNull()
+                        if (pct == null || pct < 0.0 || pct > 100.0) {
+                            saveError = "Enter a valid percentage between 0 and 100"
+                            return@TextButton
+                        }
+                        savingServiceCharge = true
+                        saveError = null
+                        scope.launch {
+                            try {
+                                val properties = runCatching { pos.properties() }.getOrNull()
+                                val propertySlug = properties?.firstOrNull()?.slug
+                                if (propertySlug == null) {
+                                    saveError = "No properties found"
+                                    savingServiceCharge = false
+                                    return@launch
+                                }
+                                val res = pos.updateServiceCharge(propertySlug, pct)
+                                if (res.ok) {
+                                    serviceCharge = res.pct
+                                    showServiceChargeEditDialog = false
+                                } else {
+                                    saveError = "Failed to save setting"
+                                }
+                            } catch (e: Exception) {
+                                saveError = e.message ?: "Could not update service charge"
+                            } finally {
+                                savingServiceCharge = false
+                            }
+                        }
+                    },
+                    enabled = !savingServiceCharge
+                ) {
+                    if (savingServiceCharge) {
+                        CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                    } else {
+                        Text("Save")
+                    }
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { showServiceChargeEditDialog = false },
+                    enabled = !savingServiceCharge
+                ) {
+                    Text("Cancel")
+                }
+            }
         )
     }
 }

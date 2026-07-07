@@ -187,10 +187,32 @@ fun CartContent(
 
         Spacer(Modifier.height(12.dp))
         Row(Modifier.fillMaxWidth()) {
-            Text("Total", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text("Subtotal", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.weight(1f))
             Text(
                 formatCents(vm.subtotalCents),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        if (vm.orderType == "dine_in") {
+            Spacer(Modifier.height(4.dp))
+            Row(Modifier.fillMaxWidth()) {
+                Text("Service Charge (${vm.serviceChargePercent}%)", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.weight(1f))
+                Text(
+                    formatCents(vm.serviceChargeCents),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+        Row(Modifier.fillMaxWidth()) {
+            Text("Total", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.weight(1f))
+            Text(
+                formatCents(vm.totalCents),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary,
