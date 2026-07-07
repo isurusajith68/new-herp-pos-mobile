@@ -36,6 +36,9 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Switch
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -65,16 +68,38 @@ fun PrinterScreen(onBack: () -> Unit) {
     val scope = rememberCoroutineScope()
     val snackbar = remember { SnackbarHostState() }
 
-    var printerType by remember { mutableStateOf(settings.printerType) }
+    var activeTab by remember { mutableStateOf(0) } // 0 = POS/Receipt Printer, 1 = Kitchen Printer
+
+    // Receipt Printer State
+    var receiptType by remember { mutableStateOf(settings.printerType) }
+    var receiptMac by remember { mutableStateOf(settings.printerMac) }
+    var receiptHost by remember { mutableStateOf(settings.printerHost ?: "") }
+    var receiptPort by remember { mutableStateOf(settings.printerPort.toString()) }
+    var receiptCols by remember { mutableStateOf(settings.paperCols) }
+
+    // Kitchen Printer State
+    var kitchenType by remember { mutableStateOf(settings.kitchenPrinterType) }
+    var kitchenMac by remember { mutableStateOf(settings.kitchenPrinterMac) }
+    var kitchenHost by remember { mutableStateOf(settings.kitchenPrinterHost ?: "") }
+    var kitchenPort by remember { mutableStateOf(settings.kitchenPrinterPort.toString()) }
+    var kitchenCols by remember { mutableStateOf(settings.kitchenPaperCols) }
+    var kotEnabled by remember { mutableStateOf(settings.kotEnabled) }
+
     var devices by remember { mutableStateOf<List<BtPrinter>>(emptyList()) }
-    var selectedMac by remember { mutableStateOf(settings.printerMac) }
-    var wifiHost by remember { mutableStateOf(settings.printerHost ?: "") }
-    var wifiPort by remember { mutableStateOf(settings.printerPort.toString()) }
-    var paperCols by remember { mutableStateOf(settings.paperCols) }
     var status by remember { mutableStateOf<String?>(null) }
 
-    val isWifi = printerType == Settings.TYPE_WIFI
-    val canPrint = if (isWifi) wifiHost.isNotBlank() else selectedMac != null
+    val currentType = if (activeTab == 0) receiptType else kitchenType
+    val currentMac = if (activeTab == 0) receiptMac else kitchenMac
+    val currentHost = if (activeTab == 0) receiptHost else kitchenHost
+    val currentPort = if (activeTab == 0) receiptPort else kitchenPort
+    val currentCols = if (activeTab == 0) receiptCols else kitchenCols
+    val currentIsWifi = currentType == Settings.TYPE_WIFI
+
+    val canPrint = if (activeTab == 0) {
+        if (currentIsWifi) currentHost.isNotBlank() else currentMac != null
+    } else {
+        kotEnabled && (if (currentIsWifi) currentHost.isNotBlank() else currentMac != null)
+    }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
@@ -102,7 +127,63 @@ fun PrinterScreen(onBack: () -> Unit) {
         }
     }
 
-    LaunchedEffect(printerType) { if (!isWifi) refresh() else status = null }
+    fun updatePaperCols(cols: Int) {
+        if (activeTab == 0) {
+            receiptCols = cols
+            settings.paperCols = cols
+        } else {
+            kitchenCols = cols
+            settings.kitchenPaperCols = cols
+        }
+    }
+
+    fun updatePrinterType(type: String) {
+        if (activeTab == 0) {
+            receiptType = type
+            settings.printerType = type
+        } else {
+            kitchenType = type
+            settings.kitchenPrinterType = type
+        }
+    }
+
+    fun updateWifiHost(host: String) {
+        if (activeTab == 0) {
+            receiptHost = host
+            settings.printerHost = host
+        } else {
+            kitchenHost = host
+            settings.kitchenPrinterHost = host
+        }
+    }
+
+    fun updateWifiPort(portStr: String) {
+        val cleanPort = portStr.filter { it.isDigit() }
+        val portInt = cleanPort.toIntOrNull() ?: 9100
+        if (activeTab == 0) {
+            receiptPort = cleanPort
+            settings.printerPort = portInt
+        } else {
+            kitchenPort = cleanPort
+            settings.kitchenPrinterPort = portInt
+        }
+    }
+
+    fun selectMacAddress(mac: String, name: String) {
+        if (activeTab == 0) {
+            receiptMac = mac
+            settings.printerMac = mac
+            settings.printerName = name
+        } else {
+            kitchenMac = mac
+            settings.kitchenPrinterMac = mac
+            settings.kitchenPrinterName = name
+        }
+    }
+
+    LaunchedEffect(activeTab, receiptType, kitchenType) {
+        if (!currentIsWifi) refresh() else status = null
+    }
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbar) },
@@ -132,125 +213,160 @@ fun PrinterScreen(onBack: () -> Unit) {
                     .fillMaxWidth()
                     .padding(16.dp),
             ) {
-                Text("Paper width", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-                Spacer(Modifier.height(6.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilterChip(
-                        selected = paperCols == 32,
-                        onClick = { paperCols = 32; settings.paperCols = 32 },
-                        label = { Text("58 mm") },
-                    )
-                    FilterChip(
-                        selected = paperCols == 48,
-                        onClick = { paperCols = 48; settings.paperCols = 48 },
-                        label = { Text("80 mm") },
-                    )
-                }
-
-                Spacer(Modifier.height(16.dp))
-                Text("Connection", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-                Spacer(Modifier.height(6.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilterChip(
-                        selected = !isWifi,
-                        onClick = { printerType = Settings.TYPE_BLUETOOTH; settings.printerType = Settings.TYPE_BLUETOOTH },
-                        label = { Text("Bluetooth") },
-                    )
-                    FilterChip(
-                        selected = isWifi,
-                        onClick = { printerType = Settings.TYPE_WIFI; settings.printerType = Settings.TYPE_WIFI },
-                        label = { Text("Wi-Fi") },
-                    )
+                TabRow(selectedTabIndex = activeTab, modifier = Modifier.fillMaxWidth()) {
+                    Tab(selected = activeTab == 0, onClick = { activeTab = 0 }) {
+                        Text("POS Printer", modifier = Modifier.padding(14.dp), fontWeight = FontWeight.SemiBold)
+                    }
+                    Tab(selected = activeTab == 1, onClick = { activeTab = 1 }) {
+                        Text("Kitchen Printer", modifier = Modifier.padding(14.dp), fontWeight = FontWeight.SemiBold)
+                    }
                 }
 
                 Spacer(Modifier.height(16.dp))
 
-                if (isWifi) {
-                    Text("Wi-Fi printer", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-                    Spacer(Modifier.height(8.dp))
-                    OutlinedTextField(
-                        value = wifiHost,
-                        onValueChange = { wifiHost = it; settings.printerHost = it },
-                        label = { Text("IP address") },
-                        placeholder = { Text("192.168.1.50") },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    OutlinedTextField(
-                        value = wifiPort,
-                        onValueChange = { v ->
-                            wifiPort = v.filter { it.isDigit() }
-                            wifiPort.toIntOrNull()?.let { settings.printerPort = it }
-                        },
-                        label = { Text("Port") },
-                        placeholder = { Text("9100") },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    Text(
-                        "Most thermal printers use port 9100. Set a fixed IP (DHCP reservation) on your router so it doesn't change.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Spacer(Modifier.weight(1f))
-                } else {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            "Paired printers",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.SemiBold,
-                            modifier = Modifier.weight(1f),
+                if (activeTab == 1) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Print Kitchen Order Tickets", fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodyLarge)
+                            Text("Send orders to the kitchen printer", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Switch(
+                            checked = kotEnabled,
+                            onCheckedChange = { kotEnabled = it; settings.kotEnabled = it }
                         )
-                        OutlinedButton(onClick = { refresh() }) { Text("Refresh") }
                     }
-                    Spacer(Modifier.height(8.dp))
+                }
 
-                    status?.let {
-                        Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                if (activeTab == 0 || kotEnabled) {
+                    Text("Paper width", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                    Spacer(Modifier.height(6.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FilterChip(
+                            selected = currentCols == 32,
+                            onClick = { updatePaperCols(32) },
+                            label = { Text("58 mm") },
+                        )
+                        FilterChip(
+                            selected = currentCols == 48,
+                            onClick = { updatePaperCols(48) },
+                            label = { Text("80 mm") },
+                        )
+                    }
+
+                    Spacer(Modifier.height(16.dp))
+                    Text("Connection", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                    Spacer(Modifier.height(6.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FilterChip(
+                            selected = !currentIsWifi,
+                            onClick = { updatePrinterType(Settings.TYPE_BLUETOOTH) },
+                            label = { Text("Bluetooth") },
+                        )
+                        FilterChip(
+                            selected = currentIsWifi,
+                            onClick = { updatePrinterType(Settings.TYPE_WIFI) },
+                            label = { Text("Wi-Fi") },
+                        )
+                    }
+
+                    Spacer(Modifier.height(16.dp))
+
+                    if (currentIsWifi) {
+                        Text("Wi-Fi printer", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
                         Spacer(Modifier.height(8.dp))
-                    }
+                        OutlinedTextField(
+                            value = currentHost,
+                            onValueChange = { updateWifiHost(it) },
+                            label = { Text("IP address") },
+                            placeholder = { Text("192.168.1.50") },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        OutlinedTextField(
+                            value = currentPort,
+                            onValueChange = { updateWifiPort(it) },
+                            label = { Text("Port") },
+                            placeholder = { Text("9100") },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            "Most thermal printers use port 9100. Set a fixed IP (DHCP reservation) on your router so it doesn't change.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Spacer(Modifier.weight(1f))
+                    } else {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                "Paired printers",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier.weight(1f),
+                            )
+                            OutlinedButton(onClick = { refresh() }) { Text("Refresh") }
+                        }
+                        Spacer(Modifier.height(8.dp))
 
-                    Box(Modifier.weight(1f)) {
-                        LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            items(devices) { d ->
-                                Card(
-                                    Modifier
-                                        .fillMaxWidth()
-                                        .clickable {
-                                            selectedMac = d.mac
-                                            settings.printerMac = d.mac
-                                            settings.printerName = d.name
-                                        },
-                                ) {
-                                    Row(
+                        status?.let {
+                            Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                            Spacer(Modifier.height(8.dp))
+                        }
+
+                        Box(Modifier.weight(1f)) {
+                            LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                items(devices) { d ->
+                                    Card(
                                         Modifier
                                             .fillMaxWidth()
-                                            .padding(16.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
+                                            .clickable { selectMacAddress(d.mac, d.name) },
                                     ) {
-                                        Column(Modifier.weight(1f)) {
-                                            Text(d.name, fontWeight = FontWeight.SemiBold)
-                                            Text(
-                                                d.mac,
-                                                style = MaterialTheme.typography.labelSmall,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            )
-                                        }
-                                        if (selectedMac == d.mac) {
-                                            Icon(
-                                                Icons.Filled.CheckCircle,
-                                                contentDescription = "Selected",
-                                                tint = MaterialTheme.colorScheme.primary,
-                                            )
+                                        Row(
+                                            Modifier
+                                                .fillMaxWidth()
+                                                .padding(16.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                        ) {
+                                            Column(Modifier.weight(1f)) {
+                                                Text(d.name, fontWeight = FontWeight.SemiBold)
+                                                Text(
+                                                    d.mac,
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                )
+                                            }
+                                            if (currentMac == d.mac) {
+                                                Icon(
+                                                    Icons.Filled.CheckCircle,
+                                                    contentDescription = "Selected",
+                                                    tint = MaterialTheme.colorScheme.primary,
+                                                )
+                                            }
                                         }
                                     }
                                 }
                             }
                         }
+                    }
+                } else {
+                    // Kitchen printer disabled view
+                    Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                        Text(
+                            "Kitchen Order Tickets are disabled.",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontWeight = FontWeight.Medium
+                        )
                     }
                 }
 
@@ -258,7 +374,17 @@ fun PrinterScreen(onBack: () -> Unit) {
                     onClick = {
                         scope.launch {
                             try {
-                                printer.print(testTicket(paperCols))
+                                if (activeTab == 0) {
+                                    printer.print(testTicket(currentCols))
+                                } else {
+                                    printer.print(
+                                        bytes = testTicket(currentCols),
+                                        type = currentType,
+                                        mac = currentMac,
+                                        host = currentHost,
+                                        port = currentPort.toIntOrNull() ?: 9100
+                                    )
+                                }
                                 snackbar.showSnackbar("Test sent")
                             } catch (e: PrinterException) {
                                 snackbar.showSnackbar(e.message ?: "Print failed")

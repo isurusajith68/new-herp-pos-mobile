@@ -188,16 +188,42 @@ fun RecentOrdersScreen(
                 if (isTablet) tabletReprinting = false else reprinting = false
                 return@launch
             }
-            if (!settings.isPrinterConfigured) {
-                snackbar.showMessage("No printer set — open Printer settings")
+            val hasReceiptPrinter = settings.isPrinterConfigured
+            val hasKitchenPrinter = settings.kotEnabled && settings.isKitchenPrinterConfigured
+            
+            if (!hasReceiptPrinter && !hasKitchenPrinter) {
+                snackbar.showMessage("No printers configured — check Printer settings")
                 if (isTablet) tabletReprinting = false else reprinting = false
                 return@launch
             }
             try {
-                val cols = settings.paperCols
-                printer.print(Receipts.kitchenTicket(ticket, cols))
-                printer.print(Receipts.customerReceipt(ticket, cols, outlet.propertyName, outlet.locationName))
-                snackbar.showMessage("Reprinted order #${ticket.orderNo}")
+                var printedKot = false
+                var printedReceipt = false
+                
+                if (settings.kotEnabled && settings.isKitchenPrinterConfigured) {
+                    printer.print(
+                        bytes = Receipts.kitchenTicket(ticket, settings.kitchenPaperCols),
+                        type = settings.kitchenPrinterType,
+                        mac = settings.kitchenPrinterMac,
+                        host = settings.kitchenPrinterHost,
+                        port = settings.kitchenPrinterPort
+                    )
+                    printedKot = true
+                }
+                if (settings.isPrinterConfigured) {
+                    printer.print(
+                        bytes = Receipts.customerReceipt(ticket, settings.paperCols, outlet.propertyName, outlet.locationName)
+                    )
+                    printedReceipt = true
+                }
+                
+                if (printedKot && printedReceipt) {
+                    snackbar.showMessage("Reprinted KOT + Receipt")
+                } else if (printedKot) {
+                    snackbar.showMessage("Reprinted KOT")
+                } else if (printedReceipt) {
+                    snackbar.showMessage("Reprinted Receipt")
+                }
             } catch (e: PrinterException) {
                 snackbar.showMessage(e.message ?: "Print failed")
             } finally {

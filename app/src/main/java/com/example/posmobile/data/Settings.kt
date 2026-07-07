@@ -51,6 +51,35 @@ class Settings(context: Context) {
         get() = prefs.getInt(KEY_PAPER_COLS, 32)
         set(v) = prefs.edit().putInt(KEY_PAPER_COLS, v).apply()
 
+    /** Kitchen printer settings */
+    var kitchenPrinterType: String
+        get() = prefs.getString(KEY_KITCHEN_PRINTER_TYPE, TYPE_BLUETOOTH) ?: TYPE_BLUETOOTH
+        set(v) = prefs.edit().putString(KEY_KITCHEN_PRINTER_TYPE, v).apply()
+
+    var kitchenPrinterMac: String?
+        get() = prefs.getString(KEY_KITCHEN_PRINTER_MAC, null)
+        set(v) = prefs.edit().putString(KEY_KITCHEN_PRINTER_MAC, v).apply()
+
+    var kitchenPrinterName: String?
+        get() = prefs.getString(KEY_KITCHEN_PRINTER_NAME, null)
+        set(v) = prefs.edit().putString(KEY_KITCHEN_PRINTER_NAME, v).apply()
+
+    var kitchenPrinterHost: String?
+        get() = prefs.getString(KEY_KITCHEN_PRINTER_HOST, null)
+        set(v) = prefs.edit().putString(KEY_KITCHEN_PRINTER_HOST, v?.trim()).apply()
+
+    var kitchenPrinterPort: Int
+        get() = prefs.getInt(KEY_KITCHEN_PRINTER_PORT, DEFAULT_PRINTER_PORT)
+        set(v) = prefs.edit().putInt(KEY_KITCHEN_PRINTER_PORT, v).apply()
+
+    var kitchenPaperCols: Int
+        get() = prefs.getInt(KEY_KITCHEN_PAPER_COLS, 32)
+        set(v) = prefs.edit().putInt(KEY_KITCHEN_PAPER_COLS, v).apply()
+
+    var kotEnabled: Boolean
+        get() = prefs.getBoolean(KEY_KOT_ENABLED, true)
+        set(v) = prefs.edit().putBoolean(KEY_KOT_ENABLED, v).apply()
+
     val clientId: String get() = "herp-pos"
 
     val authBase: String get() = "https://$tenantSlug-auth.$domainBase"
@@ -66,6 +95,12 @@ class Settings(context: Context) {
             else -> printerMac != null
         }
 
+    val isKitchenPrinterConfigured: Boolean
+        get() = when (kitchenPrinterType) {
+            TYPE_WIFI -> !kitchenPrinterHost.isNullOrBlank()
+            else -> kitchenPrinterMac != null
+        }
+
     companion object {
         const val TYPE_BLUETOOTH = "bluetooth"
         const val TYPE_WIFI = "wifi"
@@ -79,5 +114,12 @@ class Settings(context: Context) {
         private const val KEY_PRINTER_HOST = "printer_host"
         private const val KEY_PRINTER_PORT = "printer_port"
         private const val KEY_PAPER_COLS = "paper_cols"
+        private const val KEY_KITCHEN_PRINTER_TYPE = "kitchen_printer_type"
+        private const val KEY_KITCHEN_PRINTER_MAC = "kitchen_printer_mac"
+        private const val KEY_KITCHEN_PRINTER_NAME = "kitchen_printer_name"
+        private const val KEY_KITCHEN_PRINTER_HOST = "kitchen_printer_host"
+        private const val KEY_KITCHEN_PRINTER_PORT = "kitchen_printer_port"
+        private const val KEY_KITCHEN_PAPER_COLS = "kitchen_paper_cols"
+        private const val KEY_KOT_ENABLED = "kot_enabled"
     }
 }

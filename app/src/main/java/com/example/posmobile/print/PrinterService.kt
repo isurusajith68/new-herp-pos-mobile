@@ -63,21 +63,27 @@ class PrinterService(
      * transport-agnostic (built by [EscPos]); we dispatch to Bluetooth or WiFi
      * based on the user's selected connection type.
      */
-    suspend fun print(bytes: ByteArray) {
-        when (settings.printerType) {
-            Settings.TYPE_WIFI -> printWifi(bytes)
-            else -> printBluetooth(bytes)
+    suspend fun print(
+        bytes: ByteArray,
+        type: String = settings.printerType,
+        mac: String? = settings.printerMac,
+        host: String? = settings.printerHost,
+        port: Int = settings.printerPort
+    ) {
+        if (type == Settings.TYPE_WIFI) {
+            printWifi(bytes, host, port)
+        } else {
+            printBluetooth(bytes, mac)
         }
     }
 
     /** Raw ESC/POS over a TCP socket (port 9100 / JetDirect) to a networked printer. */
-    private suspend fun printWifi(bytes: ByteArray) = withContext(Dispatchers.IO) {
-        val host = settings.printerHost?.takeIf { it.isNotBlank() }
+    private suspend fun printWifi(bytes: ByteArray, host: String?, port: Int) = withContext(Dispatchers.IO) {
+        val targetHost = host?.takeIf { it.isNotBlank() }
             ?: throw PrinterException("No printer IP set — enter it in Printer settings")
-        val port = settings.printerPort
         try {
             Socket().use { socket ->
-                socket.connect(InetSocketAddress(host, port), WIFI_CONNECT_TIMEOUT_MS)
+                socket.connect(InetSocketAddress(targetHost, port), WIFI_CONNECT_TIMEOUT_MS)
                 socket.getOutputStream().apply {
                     write(bytes)
                     flush()
@@ -87,21 +93,21 @@ class PrinterService(
             }
         } catch (e: Exception) {
             throw PrinterException(
-                "Could not reach printer at $host:$port — check it's powered on, " +
+                "Could not reach printer at $targetHost:$port — check it's powered on, " +
                     "on the same Wi-Fi network and the IP is correct.",
             )
         }
     }
 
     @SuppressLint("MissingPermission")
-    private suspend fun printBluetooth(bytes: ByteArray) = withContext(Dispatchers.IO) {
+    private suspend fun printBluetooth(bytes: ByteArray, mac: String?) = withContext(Dispatchers.IO) {
         if (!hasConnectPermission()) throw PrinterException("Bluetooth permission not granted")
-        val mac = settings.printerMac
+        val targetMac = mac
             ?: throw PrinterException("No printer selected — pick one in Printer settings")
         val a = adapter() ?: throw PrinterException("No Bluetooth on this device")
         if (!a.isEnabled) throw PrinterException("Bluetooth is turned off")
 
-        val device = a.getRemoteDevice(mac)
+        val device = a.getRemoteDevice(targetMac)
         // Best-effort: discovery slows/kills RFCOMM connects, but cancelling it
         // needs BLUETOOTH_SCAN (which we don't request — we never scan), so a
         // SecurityException here is expected and must not abort the print.
