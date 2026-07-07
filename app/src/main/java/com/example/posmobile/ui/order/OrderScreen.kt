@@ -150,22 +150,28 @@ fun OrderScreen(
 
     fun placeAndPrint() {
         scope.launch {
+            vm.placing = true
             val ticket = try {
                 vm.placeOrder()
             } catch (e: Exception) {
                 snackbar.showMessage(e.message ?: "Couldn't place the order")
+                vm.placing = false
                 return@launch
             }
             snackbar.showMessage("Order #${ticket.orderNo} placed")
-            cartOpen = false
-            vm.resetAfterOrder()
 
             if (!ensureBtPermission()) {
                 snackbar.showMessage("Allow Bluetooth, then reprint from settings")
+                cartOpen = false
+                vm.resetAfterOrder()
+                vm.placing = false
                 return@launch
             }
             if (settings.printerMac == null) {
                 snackbar.showMessage("No printer selected — open Printer settings")
+                cartOpen = false
+                vm.resetAfterOrder()
+                vm.placing = false
                 return@launch
             }
             try {
@@ -175,6 +181,10 @@ fun OrderScreen(
                 snackbar.showMessage("Printed KOT + receipt")
             } catch (e: PrinterException) {
                 snackbar.showMessage(e.message ?: "Print failed")
+            } finally {
+                cartOpen = false
+                vm.resetAfterOrder()
+                vm.placing = false
             }
         }
     }

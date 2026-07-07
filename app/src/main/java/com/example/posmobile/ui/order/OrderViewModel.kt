@@ -66,7 +66,6 @@ class OrderViewModel : ViewModel() {
     private var keySeq = 0L
 
     var placing by mutableStateOf(false)
-        private set
 
     private var bound = false
 
@@ -220,12 +219,7 @@ class OrderViewModel : ViewModel() {
                 )
             },
         )
-        placing = true
-        try {
-            return pos.createTicket(outlet.propertySlug, body)
-        } finally {
-            placing = false
-        }
+        return pos.createTicket(outlet.propertySlug, body)
     }
 
     fun resetAfterOrder() {
