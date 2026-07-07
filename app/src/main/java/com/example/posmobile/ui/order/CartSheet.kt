@@ -57,129 +57,156 @@ fun CartSheet(
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
-        Column(
-            Modifier
+        CartContent(
+            vm = vm,
+            onPlace = onPlace,
+            isInline = false,
+            modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp)
-                .padding(bottom = 24.dp),
-        ) {
-            Text("Current order", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-            Spacer(Modifier.height(12.dp))
+                .padding(bottom = 24.dp)
+        )
+    }
+}
 
-            // Order type
-            SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-                val types = listOf("dine_in" to "Dine In", "takeaway" to "Takeaway")
-                types.forEachIndexed { index, (value, label) ->
-                    SegmentedButton(
-                        selected = vm.orderType == value,
-                        onClick = { vm.selectOrderType(value) },
-                        shape = SegmentedButtonDefaults.itemShape(index, types.size),
-                    ) { Text(label) }
-                }
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun CartContent(
+    vm: OrderViewModel,
+    onPlace: () -> Unit,
+    isInline: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier) {
+        Text("Current order", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(12.dp))
+
+        // Order type
+        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+            val types = listOf("dine_in" to "Dine In", "takeaway" to "Takeaway")
+            types.forEachIndexed { index, (value, label) ->
+                SegmentedButton(
+                    selected = vm.orderType == value,
+                    onClick = { vm.selectOrderType(value) },
+                    shape = SegmentedButtonDefaults.itemShape(index, types.size),
+                ) { Text(label) }
             }
+        }
 
-            if (vm.orderType == "dine_in") {
-                Spacer(Modifier.height(8.dp))
-                TableDropdown(vm)
+        if (vm.orderType == "dine_in") {
+            Spacer(Modifier.height(8.dp))
+            TableDropdown(vm)
+        }
+
+        Spacer(Modifier.height(12.dp))
+        HorizontalDivider()
+
+        if (vm.cart.isEmpty()) {
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .then(if (isInline) Modifier.weight(1f) else Modifier.height(120.dp)),
+                Alignment.Center
+            ) {
+                Text("No items", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-
-            Spacer(Modifier.height(12.dp))
-            HorizontalDivider()
-
-            if (vm.cart.isEmpty()) {
-                Box(Modifier.fillMaxWidth().height(120.dp), Alignment.Center) {
-                    Text("No items", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        } else {
+            LazyColumn(
+                modifier = if (isInline) {
+                    Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                } else {
+                    Modifier.heightIn(max = 320.dp)
                 }
-            } else {
-                LazyColumn(Modifier.heightIn(max = 320.dp)) {
-                    items(vm.cart, key = { it.key }) { line ->
-                        Row(
-                            Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Column(Modifier.weight(1f)) {
-                                Text(
-                                    line.itemName,
-                                    fontWeight = FontWeight.SemiBold,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
-                                Text(
-                                    listOfNotNull(
-                                        line.prepLocationName,
-                                        "@ ${formatCents(line.unitPriceCents)}",
-                                    ).joinToString(" · "),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                            StepButton(Icons.Filled.Remove) { vm.changeQty(line.key, -1) }
+            ) {
+                items(vm.cart, key = { it.key }) { line ->
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(Modifier.weight(1f)) {
                             Text(
-                                line.quantity.toString(),
-                                modifier = Modifier.padding(horizontal = 10.dp),
-                                fontWeight = FontWeight.Bold,
+                                line.itemName,
+                                fontWeight = FontWeight.SemiBold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
                             )
-                            StepButton(Icons.Filled.Add) { vm.changeQty(line.key, 1) }
-                            Spacer(Modifier.size(4.dp))
                             Text(
-                                formatCents(line.quantity * line.unitPriceCents),
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary,
+                                listOfNotNull(
+                                    line.prepLocationName,
+                                    "@ ${formatCents(line.unitPriceCents)}",
+                                ).joinToString(" · "),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
-                            IconButton(onClick = { vm.removeLine(line.key) }) {
-                                Icon(
-                                    Icons.Filled.Delete,
-                                    contentDescription = "Remove",
-                                    tint = MaterialTheme.colorScheme.error,
-                                )
-                            }
+                        }
+                        StepButton(Icons.Filled.Remove) { vm.changeQty(line.key, -1) }
+                        Text(
+                            line.quantity.toString(),
+                            modifier = Modifier.padding(horizontal = 10.dp),
+                            fontWeight = FontWeight.Bold,
+                        )
+                        StepButton(Icons.Filled.Add) { vm.changeQty(line.key, 1) }
+                        Spacer(Modifier.size(4.dp))
+                        Text(
+                            formatCents(line.quantity * line.unitPriceCents),
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                        IconButton(onClick = { vm.removeLine(line.key) }) {
+                            Icon(
+                                Icons.Filled.Delete,
+                                contentDescription = "Remove",
+                                tint = MaterialTheme.colorScheme.error,
+                            )
                         }
                     }
                 }
             }
+        }
 
-            HorizontalDivider()
-            Spacer(Modifier.height(12.dp))
+        HorizontalDivider()
+        Spacer(Modifier.height(12.dp))
 
-            OutlinedTextField(
-                value = vm.remarks,
-                onValueChange = vm::updateRemarks,
-                label = { Text("Remarks (allergies, notes…)") },
-                modifier = Modifier.fillMaxWidth(),
-                maxLines = 3,
+        OutlinedTextField(
+            value = vm.remarks,
+            onValueChange = vm::updateRemarks,
+            label = { Text("Remarks (allergies, notes…)") },
+            modifier = Modifier.fillMaxWidth(),
+            maxLines = 3,
+        )
+
+        Spacer(Modifier.height(12.dp))
+        Row(Modifier.fillMaxWidth()) {
+            Text("Total", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.weight(1f))
+            Text(
+                formatCents(vm.subtotalCents),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary,
             )
+        }
 
-            Spacer(Modifier.height(12.dp))
-            Row(Modifier.fillMaxWidth()) {
-                Text("Total", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                Spacer(Modifier.weight(1f))
-                Text(
-                    formatCents(vm.subtotalCents),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary,
+        Spacer(Modifier.height(12.dp))
+        Button(
+            onClick = onPlace,
+            enabled = vm.cart.isNotEmpty() && !vm.placing,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(52.dp),
+        ) {
+            if (vm.placing) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(22.dp),
+                    strokeWidth = 2.dp,
+                    color = MaterialTheme.colorScheme.onPrimary,
                 )
-            }
-
-            Spacer(Modifier.height(12.dp))
-            Button(
-                onClick = onPlace,
-                enabled = vm.cart.isNotEmpty() && !vm.placing,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp),
-            ) {
-                if (vm.placing) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(22.dp),
-                        strokeWidth = 2.dp,
-                        color = MaterialTheme.colorScheme.onPrimary,
-                    )
-                } else {
-                    Text("Place order & Print")
-                }
+            } else {
+                Text("Place order & Print")
             }
         }
     }

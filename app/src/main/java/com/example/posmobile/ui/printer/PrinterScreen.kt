@@ -4,6 +4,7 @@ import android.Manifest
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -15,6 +16,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -105,100 +107,110 @@ fun PrinterScreen(onBack: () -> Unit) {
             )
         },
     ) { padding ->
-        Column(
-            Modifier
+        val isTablet = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp >= 600
+
+        Box(
+            modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(16.dp),
+                .background(MaterialTheme.colorScheme.background),
+            contentAlignment = Alignment.TopCenter
         ) {
-            Text("Paper width", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-            Spacer(Modifier.height(6.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterChip(
-                    selected = paperCols == 32,
-                    onClick = { paperCols = 32; settings.paperCols = 32 },
-                    label = { Text("58 mm") },
-                )
-                FilterChip(
-                    selected = paperCols == 48,
-                    onClick = { paperCols = 48; settings.paperCols = 48 },
-                    label = { Text("80 mm") },
-                )
-            }
+            Column(
+                Modifier
+                    .then(if (isTablet) Modifier.widthIn(max = 600.dp) else Modifier)
+                    .fillMaxWidth()
+                    .padding(16.dp),
+            ) {
+                Text("Paper width", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                Spacer(Modifier.height(6.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(
+                        selected = paperCols == 32,
+                        onClick = { paperCols = 32; settings.paperCols = 32 },
+                        label = { Text("58 mm") },
+                    )
+                    FilterChip(
+                        selected = paperCols == 48,
+                        onClick = { paperCols = 48; settings.paperCols = 48 },
+                        label = { Text("80 mm") },
+                    )
+                }
 
-            Spacer(Modifier.height(16.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    "Paired printers",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.weight(1f),
-                )
-                OutlinedButton(onClick = { refresh() }) { Text("Refresh") }
-            }
-            Spacer(Modifier.height(8.dp))
-
-            status?.let {
-                Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                Spacer(Modifier.height(16.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        "Paired printers",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.weight(1f),
+                    )
+                    OutlinedButton(onClick = { refresh() }) { Text("Refresh") }
+                }
                 Spacer(Modifier.height(8.dp))
-            }
 
-            Box(Modifier.weight(1f)) {
-                LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(devices) { d ->
-                        Card(
-                            Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    selectedMac = d.mac
-                                    settings.printerMac = d.mac
-                                    settings.printerName = d.name
-                                },
-                        ) {
-                            Row(
+                status?.let {
+                    Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                    Spacer(Modifier.height(8.dp))
+                }
+
+                Box(Modifier.weight(1f)) {
+                    LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        items(devices) { d ->
+                            Card(
                                 Modifier
                                     .fillMaxWidth()
-                                    .padding(16.dp),
-                                verticalAlignment = Alignment.CenterVertically,
+                                    .clickable {
+                                        selectedMac = d.mac
+                                        settings.printerMac = d.mac
+                                        settings.printerName = d.name
+                                    },
                             ) {
-                                Column(Modifier.weight(1f)) {
-                                    Text(d.name, fontWeight = FontWeight.SemiBold)
-                                    Text(
-                                        d.mac,
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                }
-                                if (selectedMac == d.mac) {
-                                    Icon(
-                                        Icons.Filled.CheckCircle,
-                                        contentDescription = "Selected",
-                                        tint = MaterialTheme.colorScheme.primary,
-                                    )
+                                Row(
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .padding(16.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Column(Modifier.weight(1f)) {
+                                        Text(d.name, fontWeight = FontWeight.SemiBold)
+                                        Text(
+                                            d.mac,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
+                                    if (selectedMac == d.mac) {
+                                        Icon(
+                                            Icons.Filled.CheckCircle,
+                                            contentDescription = "Selected",
+                                            tint = MaterialTheme.colorScheme.primary,
+                                        )
+                                    }
                                 }
                             }
                         }
                     }
                 }
-            }
 
-            Button(
-                onClick = {
-                    scope.launch {
-                        try {
-                            printer.print(testTicket(paperCols))
-                            snackbar.showSnackbar("Test sent")
-                        } catch (e: PrinterException) {
-                            snackbar.showSnackbar(e.message ?: "Print failed")
+                Button(
+                    onClick = {
+                        scope.launch {
+                            try {
+                                printer.print(testTicket(paperCols))
+                                snackbar.showSnackbar("Test sent")
+                            } catch (e: PrinterException) {
+                                snackbar.showSnackbar(e.message ?: "Print failed")
+                            }
                         }
-                    }
-                },
-                enabled = selectedMac != null,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Icon(Icons.Filled.Print, contentDescription = null)
-                Spacer(Modifier.width(8.dp))
-                Text("Print test receipt")
+                    },
+                    enabled = selectedMac != null,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Icon(Icons.Filled.Print, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Print test receipt")
+                }
             }
         }
     }

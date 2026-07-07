@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -125,55 +126,68 @@ fun OutletScreen(
                 },
             )
 
-            val loading = if (inLocations) locations == null else properties == null
+            val isTablet = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp >= 600
 
-            AnimatedContent(
-                targetState = inLocations,
-                transitionSpec = {
-                    if (targetState) {
-                        (slideInHorizontally { it / 3 } + fadeIn()) togetherWith
-                            (slideOutHorizontally { -it / 3 } + fadeOut())
-                    } else {
-                        (slideInHorizontally { -it / 3 } + fadeIn()) togetherWith
-                            (slideOutHorizontally { it / 3 } + fadeOut())
-                    }
-                },
-                label = "outlet-step",
-            ) { showLocations ->
-                when {
-                    loading -> Box(Modifier.fillMaxSize(), Alignment.Center) { CircularProgressIndicator() }
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.background),
+                contentAlignment = Alignment.TopCenter
+            ) {
+                Box(
+                    modifier = if (isTablet) Modifier.widthIn(max = 800.dp).fillMaxWidth() else Modifier.fillMaxSize()
+                ) {
+                    val loading = if (inLocations) locations == null else properties == null
 
-                    showLocations -> OutletGrid(
-                        error = error,
-                        empty = locations.orEmpty().isEmpty() && error == null,
-                        emptyText = "No active outlets in this property yet.",
-                        onRetry = { openProperty(selectedProperty!!) },
-                        items = locations.orEmpty(),
-                        title = { it.name },
-                        subtitle = { it.description },
-                        onClick = { loc ->
-                            session.selectOutlet(
-                                Outlet(
-                                    propertySlug = selectedProperty!!.slug,
-                                    propertyName = selectedProperty!!.name,
-                                    locationId = loc.id,
-                                    locationName = loc.name,
-                                ),
-                            )
-                            onOutletChosen()
+                    AnimatedContent(
+                        targetState = inLocations,
+                        transitionSpec = {
+                            if (targetState) {
+                                (slideInHorizontally { it / 3 } + fadeIn()) togetherWith
+                                    (slideOutHorizontally { -it / 3 } + fadeOut())
+                            } else {
+                                (slideInHorizontally { -it / 3 } + fadeIn()) togetherWith
+                                    (slideOutHorizontally { it / 3 } + fadeOut())
+                            }
                         },
-                    )
+                        label = "outlet-step",
+                    ) { showLocations ->
+                        when {
+                            loading -> Box(Modifier.fillMaxSize(), Alignment.Center) { CircularProgressIndicator() }
 
-                    else -> OutletGrid(
-                        error = error,
-                        empty = properties.orEmpty().isEmpty() && error == null,
-                        emptyText = "No POS-enabled properties for this account.",
-                        onRetry = { loadProperties() },
-                        items = properties.orEmpty(),
-                        title = { it.name },
-                        subtitle = { "@${it.slug}" },
-                        onClick = { openProperty(it) },
-                    )
+                            showLocations -> OutletGrid(
+                                error = error,
+                                empty = locations.orEmpty().isEmpty() && error == null,
+                                emptyText = "No active outlets in this property yet.",
+                                onRetry = { openProperty(selectedProperty!!) },
+                                items = locations.orEmpty(),
+                                title = { it.name },
+                                subtitle = { it.description },
+                                onClick = { loc ->
+                                    session.selectOutlet(
+                                        Outlet(
+                                            propertySlug = selectedProperty!!.slug,
+                                            propertyName = selectedProperty!!.name,
+                                            locationId = loc.id,
+                                            locationName = loc.name,
+                                        ),
+                                    )
+                                    onOutletChosen()
+                                },
+                            )
+
+                            else -> OutletGrid(
+                                error = error,
+                                empty = properties.orEmpty().isEmpty() && error == null,
+                                emptyText = "No POS-enabled properties for this account.",
+                                onRetry = { loadProperties() },
+                                items = properties.orEmpty(),
+                                title = { it.name },
+                                subtitle = { "@${it.slug}" },
+                                onClick = { openProperty(it) },
+                            )
+                        }
+                    }
                 }
             }
         }

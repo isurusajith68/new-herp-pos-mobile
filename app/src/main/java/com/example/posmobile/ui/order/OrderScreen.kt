@@ -170,11 +170,13 @@ fun OrderScreen(
         }
     }
 
+    val isTablet = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp >= 720
+
     androidx.compose.material3.Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         snackbarHost = { androidx.compose.material3.SnackbarHost(snackbar) },
         bottomBar = {
-            if (vm.cart.isNotEmpty()) {
+            if (!isTablet && vm.cart.isNotEmpty()) {
                 OrderBar(
                     qty = vm.totalQty,
                     total = formatCents(vm.subtotalCents),
@@ -183,58 +185,149 @@ fun OrderScreen(
             }
         },
     ) { inner ->
-        Column(
-            Modifier
-                .fillMaxSize()
-                .padding(bottom = inner.calculateBottomPadding()),
-        ) {
-            OrderHero(
-                outlet = outlet,
-                search = vm.search,
-                onSearch = vm::updateSearch,
-                onChangeOutlet = onChangeOutlet,
-                onOpenOrders = onOpenOrders,
-                onOpenPrinter = onOpenPrinter,
-                onOpenProfile = onOpenProfile,
-            )
-
-            val categories = vm.categories
-            LazyRow(
-                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+        if (isTablet) {
+            Row(
+                Modifier
+                    .fillMaxSize()
+                    .padding(bottom = inner.calculateBottomPadding())
             ) {
-                item {
-                    CategoryPill("🍴", "All", vm.activeCategory == OrderViewModel.ALL) {
-                        vm.selectCategory(OrderViewModel.ALL)
+                // Left pane: Menu grid
+                Column(
+                    Modifier
+                        .weight(2f)
+                        .fillMaxSize()
+                ) {
+                    OrderHero(
+                        outlet = outlet,
+                        search = vm.search,
+                        onSearch = vm::updateSearch,
+                        onChangeOutlet = onChangeOutlet,
+                        onOpenOrders = onOpenOrders,
+                        onOpenPrinter = onOpenPrinter,
+                        onOpenProfile = onOpenProfile,
+                    )
+
+                    val categories = vm.categories
+                    LazyRow(
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        item {
+                            CategoryPill("🍴", "All", vm.activeCategory == OrderViewModel.ALL) {
+                                vm.selectCategory(OrderViewModel.ALL)
+                            }
+                        }
+                        items(categories) { cat ->
+                            CategoryPill(catEmoji(cat), cat, vm.activeCategory == cat) {
+                                vm.selectCategory(cat)
+                            }
+                        }
+                    }
+
+                    when {
+                        vm.menuItems == null ->
+                            Box(Modifier.fillMaxSize(), Alignment.Center) { CircularProgressIndicator() }
+
+                        vm.visibleMenu().isEmpty() ->
+                            Box(Modifier.fillMaxSize(), Alignment.Center) {
+                                Text(
+                                    vm.loadError ?: "No items match your search",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+
+                        else -> LazyVerticalGrid(
+                            columns = GridCells.Adaptive(minSize = 158.dp),
+                            contentPadding = PaddingValues(12.dp),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
+                            items(vm.visibleMenu(), key = { it.id }) { item ->
+                                MenuCard(item) { addItem = item }
+                            }
+                        }
                     }
                 }
-                items(categories) { cat ->
-                    CategoryPill(catEmoji(cat), cat, vm.activeCategory == cat) {
-                        vm.selectCategory(cat)
+
+                // Right pane: Cart
+                Surface(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxSize(),
+                    color = MaterialTheme.colorScheme.surface,
+                    tonalElevation = 1.dp,
+                    shadowElevation = 2.dp
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .statusBarsPadding()
+                            .navigationBarsPadding()
+                            .padding(16.dp)
+                    ) {
+                        CartContent(
+                            vm = vm,
+                            onPlace = { placeAndPrint() },
+                            isInline = true,
+                            modifier = Modifier.fillMaxSize()
+                        )
                     }
                 }
             }
+        } else {
+            Column(
+                Modifier
+                    .fillMaxSize()
+                    .padding(bottom = inner.calculateBottomPadding()),
+            ) {
+                OrderHero(
+                    outlet = outlet,
+                    search = vm.search,
+                    onSearch = vm::updateSearch,
+                    onChangeOutlet = onChangeOutlet,
+                    onOpenOrders = onOpenOrders,
+                    onOpenPrinter = onOpenPrinter,
+                    onOpenProfile = onOpenProfile,
+                )
 
-            when {
-                vm.menuItems == null ->
-                    Box(Modifier.fillMaxSize(), Alignment.Center) { CircularProgressIndicator() }
-
-                vm.visibleMenu().isEmpty() ->
-                    Box(Modifier.fillMaxSize(), Alignment.Center) {
-                        Text(
-                            vm.loadError ?: "No items match your search",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-
-                else -> LazyVerticalGrid(
-                    columns = GridCells.Adaptive(minSize = 158.dp),
-                    contentPadding = PaddingValues(12.dp),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                val categories = vm.categories
+                LazyRow(
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    items(vm.visibleMenu(), key = { it.id }) { item ->
-                        MenuCard(item) { addItem = item }
+                    item {
+                        CategoryPill("🍴", "All", vm.activeCategory == OrderViewModel.ALL) {
+                            vm.selectCategory(OrderViewModel.ALL)
+                        }
+                    }
+                    items(categories) { cat ->
+                        CategoryPill(catEmoji(cat), cat, vm.activeCategory == cat) {
+                            vm.selectCategory(cat)
+                        }
+                    }
+                }
+
+                when {
+                    vm.menuItems == null ->
+                        Box(Modifier.fillMaxSize(), Alignment.Center) { CircularProgressIndicator() }
+
+                    vm.visibleMenu().isEmpty() ->
+                        Box(Modifier.fillMaxSize(), Alignment.Center) {
+                            Text(
+                                vm.loadError ?: "No items match your search",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+
+                    else -> LazyVerticalGrid(
+                        columns = GridCells.Adaptive(minSize = 158.dp),
+                        contentPadding = PaddingValues(12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        items(vm.visibleMenu(), key = { it.id }) { item ->
+                            MenuCard(item) { addItem = item }
+                        }
                     }
                 }
             }

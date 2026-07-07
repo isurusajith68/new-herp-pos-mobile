@@ -1,5 +1,6 @@
 package com.example.posmobile.ui.profile
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -10,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -131,155 +133,165 @@ fun ProfileScreen(
             return@Scaffold
         }
 
-        Column(
-            Modifier
+        val isTablet = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp >= 600
+
+        Box(
+            modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp),
+                .background(MaterialTheme.colorScheme.background),
+            contentAlignment = Alignment.TopCenter
         ) {
-            Spacer(Modifier.height(8.dp))
-
-            // ---- Hero header: avatar, name, email, workspace pill ----
             Column(
-                Modifier.fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally,
+                Modifier
+                    .then(if (isTablet) Modifier.widthIn(max = 600.dp) else Modifier)
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 20.dp),
             ) {
-                Surface(
-                    shape = CircleShape,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(88.dp),
+                Spacer(Modifier.height(8.dp))
+
+                // ---- Hero header: avatar, name, email, workspace pill ----
+                Column(
+                    Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Text(
-                            initials(user?.fullName, user?.email),
-                            fontSize = 32.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onPrimary,
-                        )
+                    Surface(
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(88.dp),
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text(
+                                initials(user?.fullName, user?.email),
+                                fontSize = 32.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onPrimary,
+                            )
+                        }
                     }
-                }
-                Spacer(Modifier.height(14.dp))
-                Text(
-                    user?.fullName?.ifBlank { "—" } ?: "—",
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Center,
-                )
-                user?.email?.let {
-                    Spacer(Modifier.height(2.dp))
+                    Spacer(Modifier.height(14.dp))
                     Text(
-                        it,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        user?.fullName?.ifBlank { "—" } ?: "—",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
                         textAlign = TextAlign.Center,
                     )
-                }
-                val wsName = workspace?.name?.ifBlank { settings.tenantSlug } ?: settings.tenantSlug
-                Spacer(Modifier.height(10.dp))
-                Surface(
-                    shape = CircleShape,
-                    color = MaterialTheme.colorScheme.primaryContainer,
-                ) {
-                    Row(
-                        Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Icon(
-                            Icons.Filled.Store,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                            modifier = Modifier.size(16.dp),
-                        )
-                        Spacer(Modifier.size(6.dp))
+                    user?.email?.let {
+                        Spacer(Modifier.height(2.dp))
                         Text(
-                            wsName,
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            it,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center,
                         )
                     }
+                    val wsName = workspace?.name?.ifBlank { settings.tenantSlug } ?: settings.tenantSlug
+                    Spacer(Modifier.height(10.dp))
+                    Surface(
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                    ) {
+                        Row(
+                            Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Icon(
+                                Icons.Filled.Store,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                modifier = Modifier.size(16.dp),
+                            )
+                            Spacer(Modifier.size(6.dp))
+                            Text(
+                                wsName,
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            )
+                        }
+                    }
                 }
-            }
 
-            error?.let {
-                Spacer(Modifier.height(16.dp))
+                error?.let {
+                    Spacer(Modifier.height(16.dp))
+                    Text(
+                        it,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+
+                // ---- Account section ----
+                SectionLabel("ACCOUNT")
+                SettingsCard {
+                    InfoRow(
+                        icon = Icons.Filled.Cloud,
+                        label = "Server",
+                        value = settings.domainBase,
+                    )
+                    HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
+                    InfoRow(
+                        icon = Icons.Filled.Print,
+                        label = "Printer",
+                        value = settings.printerName ?: "Not selected",
+                        onClick = onOpenPrinter,
+                    )
+                }
+
+                // ---- About section ----
+                SectionLabel("ABOUT")
+                SettingsCard {
+                    InfoRow(
+                        icon = Icons.Filled.Info,
+                        label = "App version",
+                        value = "${BuildConfig.VERSION_NAME} (build ${BuildConfig.VERSION_CODE})",
+                    )
+                    HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
+                    InfoRow(
+                        icon = Icons.Filled.SystemUpdate,
+                        label = "Check for updates",
+                        value = updateStatus ?: "Tap to check GitHub for a newer version",
+                        onClick = { checkForUpdate() },
+                        trailing = {
+                            if (checking) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(20.dp),
+                                    strokeWidth = 2.dp,
+                                )
+                            }
+                        },
+                    )
+                }
+
+                Spacer(Modifier.height(28.dp))
+
+                FilledTonalButton(
+                    onClick = onLogout,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(52.dp),
+                    colors = androidx.compose.material3.ButtonDefaults.filledTonalButtonColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer,
+                        contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                    ),
+                ) {
+                    Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = null)
+                    Spacer(Modifier.size(8.dp))
+                    Text("Log out", fontWeight = FontWeight.SemiBold)
+                }
+
+                Spacer(Modifier.height(24.dp))
                 Text(
-                    it,
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodySmall,
+                    "HERP POS · v${BuildConfig.VERSION_NAME}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center,
                     modifier = Modifier.fillMaxWidth(),
                 )
+                Spacer(Modifier.height(20.dp))
             }
-
-            // ---- Account section ----
-            SectionLabel("ACCOUNT")
-            SettingsCard {
-                InfoRow(
-                    icon = Icons.Filled.Cloud,
-                    label = "Server",
-                    value = settings.domainBase,
-                )
-                HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
-                InfoRow(
-                    icon = Icons.Filled.Print,
-                    label = "Printer",
-                    value = settings.printerName ?: "Not selected",
-                    onClick = onOpenPrinter,
-                )
-            }
-
-            // ---- About section ----
-            SectionLabel("ABOUT")
-            SettingsCard {
-                InfoRow(
-                    icon = Icons.Filled.Info,
-                    label = "App version",
-                    value = "${BuildConfig.VERSION_NAME} (build ${BuildConfig.VERSION_CODE})",
-                )
-                HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
-                InfoRow(
-                    icon = Icons.Filled.SystemUpdate,
-                    label = "Check for updates",
-                    value = updateStatus ?: "Tap to check GitHub for a newer version",
-                    onClick = { checkForUpdate() },
-                    trailing = {
-                        if (checking) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(20.dp),
-                                strokeWidth = 2.dp,
-                            )
-                        }
-                    },
-                )
-            }
-
-            Spacer(Modifier.height(28.dp))
-
-            FilledTonalButton(
-                onClick = onLogout,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp),
-                colors = androidx.compose.material3.ButtonDefaults.filledTonalButtonColors(
-                    containerColor = MaterialTheme.colorScheme.errorContainer,
-                    contentColor = MaterialTheme.colorScheme.onErrorContainer,
-                ),
-            ) {
-                Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = null)
-                Spacer(Modifier.size(8.dp))
-                Text("Log out", fontWeight = FontWeight.SemiBold)
-            }
-
-            Spacer(Modifier.height(24.dp))
-            Text(
-                "HERP POS · v${BuildConfig.VERSION_NAME}",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth(),
-            )
-            Spacer(Modifier.height(20.dp))
         }
     }
 

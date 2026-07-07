@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -83,17 +84,18 @@ fun LoginScreen(session: SessionViewModel) {
         }
     }
 
-    Column(
-        Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .imePadding(),
-    ) {
+    val isTablet = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp >= 600
+
+    val content = @Composable {
         // ── Branded hero ──
         Column(
             Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(bottomStart = 32.dp, bottomEnd = 32.dp))
+                .then(if (!isTablet) {
+                    Modifier.clip(RoundedCornerShape(bottomStart = 32.dp, bottomEnd = 32.dp))
+                } else {
+                    Modifier
+                })
                 .background(Brush.linearGradient(listOf(BrandBlue, BrandBlueDark)))
                 .statusBarsPadding()
                 .padding(horizontal = 24.dp)
@@ -225,6 +227,41 @@ fun LoginScreen(session: SessionViewModel) {
                     Text("Sign In", fontWeight = FontWeight.Bold)
                 }
             }
+        }
+    }
+
+    if (isTablet) {
+        Box(
+            Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))
+                .verticalScroll(rememberScrollState())
+                .imePadding()
+                .padding(24.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            androidx.compose.material3.ElevatedCard(
+                modifier = Modifier
+                    .widthIn(max = 460.dp)
+                    .fillMaxWidth(),
+                shape = RoundedCornerShape(24.dp),
+                colors = androidx.compose.material3.CardDefaults.elevatedCardColors(
+                    containerColor = MaterialTheme.colorScheme.surface
+                )
+            ) {
+                Column(Modifier.fillMaxWidth()) {
+                    content()
+                }
+            }
+        }
+    } else {
+        Column(
+            Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .imePadding(),
+        ) {
+            content()
         }
     }
 }
